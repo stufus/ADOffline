@@ -4,7 +4,7 @@
 
 Most penetration testers, or those engaged in simulated attacks or red team activities, will understand the value of reconnisance. On large corporate networks, this will involve a fair amount of Active Directory querying. There are some exceptionally powerful tools built into Empire, PowerTools and Metasploit, but these all rely on an active connection to a domain controller.
 
-This tool combines the flexibility of SQL with the raw detail in Active Directory and parses the raw LDAP output from Active Directory into a SQLite database. This can then be used to explore user and group membership and download all computer information.
+This tool combines the flexibility of SQL with the raw detail in Active Directory by parsing the raw LDAP output from Active Directory into a SQLite database. This can then be used to explore user and group membership and download all computer information.
 
 There is a huge amount of information stored in LDAP; this tool does not seek to recover it all, but instead should help with planning attacks or identifying high value target users without needing to constantly query AD.
 
