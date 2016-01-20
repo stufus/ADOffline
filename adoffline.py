@@ -4,6 +4,7 @@ import tempfile
 import sqlite3
 import re
 import sys
+import os
 
 # This function looks for "x: y" in an LDIF
 # file and effectively splits them up using a regex
@@ -176,6 +177,18 @@ def log(strval):
 
 # Create the SQLite3 database
 sys.stdout.write("AD LDAP to SQLite Offline Parser\nStuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>\n\n")
+
+if len(sys.argv)<2:
+    log("Specify the source LDIF filename on the command line. Create it with a command such as:")
+    log("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no \"(objectClass=user)\" > ldap.output")
+    sys.exit(1)
+
+source_filename = sys.argv[1]
+if not os.path.isfile(source_filename):
+    log("Unable to read "+source_filename+". Make sure this is a valid file.")
+    sys.exit(2)
+
+
 log("Creating database: ")
 db_file = tempfile.NamedTemporaryFile(delete=False)
 db_filename = db_file.name+'.'+time.strftime('%Y%m%d%H%M%S')+'.ad-ldap.db'
@@ -185,14 +198,12 @@ build_db_schema(sql)
 create_views(sql)
 sys.stdout.write(db_filename+"\n")
 
-sql.close()
-sys.exit(0)
-
+f = open(source_filename,"r")
 log("Reading LDIF..")
 # Open the LDAP file and read its contents
-f = open("ldap.file","r")
 lines = f.readlines()
 sys.stdout.write(".done\n")
+f.close()
 
 # Create an initial object
 current_dn = {}
