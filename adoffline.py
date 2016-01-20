@@ -35,8 +35,6 @@ def process_struct(struct,sql):
         return
 
     insert_into_db(struct,sql)
-    sys.stdout.write('+')
-    sys.stdout.flush()
     return
 
 # Build the SQL database schema
@@ -46,10 +44,10 @@ def build_db_schema(sql):
 
     # Create the tables
     c.execute('''CREATE TABLE raw_users
-                 ('objectClass','dn','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType',
+                 ('objectClass','dn','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType',
                  'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName',
                  'manager','mail','groupType')''') 
-    c.execute("CREATE TABLE raw_memberof ('dn_group','dn_user')")
+    c.execute("CREATE TABLE raw_memberof ('dn_group','dn_member')")
 
     sql.commit()
     return
@@ -63,8 +61,8 @@ def fix_db_indices(sql):
     c.execute("CREATE UNIQUE INDEX raw_users_dn on raw_users (dn)")
     c.execute("CREATE INDEX raw_users_dnshostname on raw_users (objectClass,dNSHostName)")
     c.execute("CREATE INDEX raw_users_samaccountname on raw_users (objectClass,sAMAccountName)")
-    c.execute("CREATE UNIQUE INDEX raw_memberof_group_user on raw_memberof('dn_group','dn_user')")
-    c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_user','dn_group')")
+    c.execute("CREATE UNIQUE INDEX raw_memberof_group_user on raw_memberof('dn_group','dn_member')")
+    c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
 
     sql.commit()
     return
@@ -74,56 +72,54 @@ def create_views(sql):
     c = sql.cursor()
 
     # Generate the main view with calculated fields
-    c.execute('''CREATE VIEW view_raw_users AS select objectClass,dn,cn,sn,description,instanceType,displayName,name,dNSHostName,userAccountControl,badPwdCount,primaryGroupID,adminCount,objectSid,sAMAccountName,sAMAccountType,objectCategory,managedBy,givenName,info,department,company,homeDirectory,userPrincipalName,manager,mail,operatingSystem,operatingSystemVersion,operatingSystemServicePack,groupType,
-        CASE (userAccountControl&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SCRIPT,
-        CASE (userAccountControl&0x00000002) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ACCOUNTDISABLE,
-        CASE (userAccountControl&0x00000008) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_HOMEDIR_REQUIRED,
-        CASE (userAccountControl&0x00000010) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_LOCKOUT,
-        CASE (userAccountControl&0x00000020) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_NOTREQD,
-        CASE (userAccountControl&0x00000040) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_CANT_CHANGE,
-        CASE (userAccountControl&0x00000080) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED,
-        CASE (userAccountControl&0x00000100) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TEMP_DUPLICATE_ACCOUNT,
-        CASE (userAccountControl&0x00000200) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_NORMAL_ACCOUNT,
-        CASE (userAccountControl&0x00000800) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_INTERDOMAIN_TRUST_ACCOUNT,
-        CASE (userAccountControl&0x00001000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_WORKSTATION_TRUST_ACCOUNT,
-        CASE (userAccountControl&0x00002000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SERVER_TRUST_ACCOUNT,
-        CASE (userAccountControl&0x00010000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_DONT_EXPIRE_PASSWD,
-        CASE (userAccountControl&0x00020000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_MNS_LOGON_ACCOUNT,
-        CASE (userAccountControl&0x00040000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SMARTCARD_REQUIRED,
-        CASE (userAccountControl&0x00080000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_FOR_DELEGATION,
-        CASE (userAccountControl&0x00100000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_NOT_DELEGATED,
-        CASE (userAccountControl&0x00200000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_USE_DES_KEY_ONLY,
-        CASE (userAccountControl&0x00400000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_DONT_REQUIRE_PREAUTH,
-        CASE (userAccountControl&0x00800001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWORD_EXPIRED,
-        CASE (userAccountControl&0x01000000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION,
-        CASE WHEN (sAMAccountType==0) THEN 1 ELSE 0 END) AS SAM_DOMAIN_OBJECT,
-        CASE WHEN (sAMAccountType==0x10000000) THEN 1 ELSE 0 END) AS SAM_GROUP_OBJECT,
-        CASE WHEN (sAMAccountType==0x10000001) THEN 1 ELSE 0 END) AS SAM_NON_SECURITY_GROUP_OBJECT,
-        CASE WHEN (sAMAccountType==0x20000000) THEN 1 ELSE 0 END) AS SAM_ALIAS_OBJECT,
-        CASE WHEN (sAMAccountType==0x20000001) THEN 1 ELSE 0 END) AS SAM_NON_SECURITY_ALIAS_OBJECT,
-        CASE WHEN (sAMAccountType==0x30000000) THEN 1 ELSE 0 END) AS SAM_NORMAL_USER_ACCOUNT,
-        CASE WHEN (sAMAccountType==0x30000001) THEN 1 ELSE 0 END) AS SAM_MACHINE_ACCOUNT,
-        CASE WHEN (sAMAccountType==0x30000002) THEN 1 ELSE 0 END) AS SAM_TRUST_ACCOUNT,
-        CASE WHEN (sAMAccountType==0x40000000) THEN 1 ELSE 0 END) AS SAM_APP_BASIC_GROUP,
-        CASE WHEN (sAMAccountType==0x40000001) THEN 1 ELSE 0 END) AS SAM_APP_QUERY_GROUP,
-        CASE WHEN (sAMAccountType==0x7fffffff) THEN 1 ELSE 0 END) AS SAM_ACCOUNT_TYPE_MAX
-        FROM raw_users''')
+    c.execute('''CREATE VIEW view_raw_users AS select objectClass, dn, cn, sn, description, instanceType, displayName, name, dNSHostName, userAccountControl, badPwdCount, primaryGroupID, adminCount, objectSid, sid, rid, sAMAccountName, sAMAccountType, objectCategory, managedBy, givenName, info, department, company, homeDirectory, userPrincipalName, manager, mail, operatingSystem, operatingSystemVersion, operatingSystemServicePack, groupType,
+     (CASE (userAccountControl&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SCRIPT,
+     (CASE (userAccountControl&0x00000002) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ACCOUNTDISABLE,
+	 (CASE (userAccountControl&0x00000008) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_HOMEDIR_REQUIRED,
+	 (CASE (userAccountControl&0x00000010) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_LOCKOUT,
+	 (CASE (userAccountControl&0x00000020) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_NOTREQD,
+	 (CASE (userAccountControl&0x00000040) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_CANT_CHANGE,
+	 (CASE (userAccountControl&0x00000080) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED,
+	 (CASE (userAccountControl&0x00000100) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TEMP_DUPLICATE_ACCOUNT,
+	 (CASE (userAccountControl&0x00000200) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_NORMAL_ACCOUNT,
+	 (CASE (userAccountControl&0x00000800) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_INTERDOMAIN_TRUST_ACCOUNT,
+	 (CASE (userAccountControl&0x00001000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_WORKSTATION_TRUST_ACCOUNT,
+	 (CASE (userAccountControl&0x00002000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SERVER_TRUST_ACCOUNT,
+	 (CASE (userAccountControl&0x00010000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_DONT_EXPIRE_PASSWD,
+	 (CASE (userAccountControl&0x00020000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_MNS_LOGON_ACCOUNT,
+	 (CASE (userAccountControl&0x00040000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SMARTCARD_REQUIRED,
+	 (CASE (userAccountControl&0x00080000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_FOR_DELEGATION,
+	 (CASE (userAccountControl&0x00100000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_NOT_DELEGATED,
+	 (CASE (userAccountControl&0x00200000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_USE_DES_KEY_ONLY,
+	 (CASE (userAccountControl&0x00400000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_DONT_REQUIRE_PREAUTH,
+	 (CASE (userAccountControl&0x00800001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWORD_EXPIRED,
+	 (CASE (userAccountControl&0x01000000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION,
+	 CASE WHEN (sAMAccountType==0) THEN 1 ELSE 0 END AS SAM_DOMAIN_OBJECT,
+	 CASE WHEN (sAMAccountType==0x10000000) THEN 1 ELSE 0 END AS SAM_GROUP_OBJECT,
+	 CASE WHEN (sAMAccountType==0x10000001) THEN 1 ELSE 0 END AS SAM_NON_SECURITY_GROUP_OBJECT,
+	 CASE WHEN (sAMAccountType==0x20000000) THEN 1 ELSE 0 END AS SAM_ALIAS_OBJECT,
+	 CASE WHEN (sAMAccountType==0x20000001) THEN 1 ELSE 0 END AS SAM_NON_SECURITY_ALIAS_OBJECT,
+	 CASE WHEN (sAMAccountType==0x30000000) THEN 1 ELSE 0 END AS SAM_NORMAL_USER_ACCOUNT,
+	 CASE WHEN (sAMAccountType==0x30000001) THEN 1 ELSE 0 END AS SAM_MACHINE_ACCOUNT,
+	 CASE WHEN (sAMAccountType==0x30000002) THEN 1 ELSE 0 END AS SAM_TRUST_ACCOUNT,
+	 CASE WHEN (sAMAccountType==0x40000000) THEN 1 ELSE 0 END AS SAM_APP_BASIC_GROUP,
+	 CASE WHEN (sAMAccountType==0x40000001) THEN 1 ELSE 0 END AS SAM_APP_QUERY_GROUP,
+	 CASE WHEN (sAMAccountType==0x7fffffff) THEN 1 ELSE 0 END AS SAM_ACCOUNT_TYPE_MAX FROM raw_users''')
 
     # Add additional fields to the group one
     c.execute('''CREATE VIEW view_groups AS select view_raw_users.*,
-        CASE (groupType&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS GROUP_CREATED_BY_SYSTEM,
-        CASE (groupType&0x00000002) WHEN (0x00000002) THEN 1 ELSE 0 END) AS GROUP_SCOPE_GLOBAL,
-        CASE (groupType&0x00000004) WHEN (0x00000004) THEN 1 ELSE 0 END) AS GROUP_SCOPE_LOCAL,
-        CASE (groupType&0x00000008) WHEN (0x00000008) THEN 1 ELSE 0 END) AS GROUP_SCOPE_UNIVERSAL,
-        CASE (groupType&0x00000010) WHEN (0x00000010) THEN 1 ELSE 0 END) AS GROUP_SAM_APP_BASIC,
-        CASE (groupType&0x00000020) WHEN (0x00000020) THEN 1 ELSE 0 END) AS GROUP_SAM_APP_QUERY,
-        CASE (groupType&0x80000000) WHEN (0x80000000) THEN 1 ELSE 0 END) AS GROUP_SECURITY,
-        CASE (groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS GROUP_DISTRIBUTION,
-        FROM view_raw_users WHERE objectClass = 'group' ''')
+     (CASE (groupType&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS GROUP_CREATED_BY_SYSTEM,
+     (CASE (groupType&0x00000002) WHEN (0x00000002) THEN 1 ELSE 0 END) AS GROUP_SCOPE_GLOBAL,
+     (CASE (groupType&0x00000004) WHEN (0x00000004) THEN 1 ELSE 0 END) AS GROUP_SCOPE_LOCAL,
+     (CASE (groupType&0x00000008) WHEN (0x00000008) THEN 1 ELSE 0 END) AS GROUP_SCOPE_UNIVERSAL,
+     (CASE (groupType&0x00000010) WHEN (0x00000010) THEN 1 ELSE 0 END) AS GROUP_SAM_APP_BASIC,
+     (CASE (groupType&0x00000020) WHEN (0x00000020) THEN 1 ELSE 0 END) AS GROUP_SAM_APP_QUERY,
+     (CASE (groupType&0x80000000) WHEN (0x80000000) THEN 1 ELSE 0 END) AS GROUP_SECURITY,
+     (CASE (groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS GROUP_DISTRIBUTION FROM view_raw_users WHERE objectClass = 'group' ''')
 
     # Create the user and computer views. In effect it is the same table though.
-    c.execute('''CREATE VIEW view_users AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'user' ''')
-    c.execute('''CREATE VIEW view_computers AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'computer' ''')
+    c.execute("CREATE VIEW view_users AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'user'")
+    c.execute("CREATE VIEW view_computers AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'computer'")
 
     sql.commit()
     return
@@ -155,7 +151,7 @@ def insert_into_db(struct,sql):
 
     if 'memberOf' in struct:
         for m in struct['memberOf']:
-            sql_memberof = 'replace into raw_memberof (dn_group,dn_user) VALUES (?,?)'
+            sql_memberof = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
             c.execute(sql_memberof, [m,struct['dn']])
 
     sql.commit()
@@ -188,6 +184,9 @@ sql = sqlite3.connect(db_filename)
 build_db_schema(sql)
 create_views(sql)
 sys.stdout.write(db_filename+"\n")
+
+sql.close()
+sys.exit(0)
 
 log("Reading LDIF..")
 # Open the LDAP file and read its contents
