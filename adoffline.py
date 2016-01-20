@@ -8,7 +8,7 @@ import sys
 # This function looks for "x: y" in an LDIF
 # file and effectively splits them up using a regex
 def match_param(line,param):
-    var = re.match('^'+param+'::?\s([^$]+)\s*$', line)
+    var = re.match('^'+param+'::?\s([^$]+)\s*$', line.strip())
     if var != None:
         return var.group(1).strip()
 
@@ -43,14 +43,32 @@ def process_struct(struct,sql):
 def build_db_schema(sql):
     
     c = sql.cursor()
+
+    # Create the tables
     c.execute('''CREATE TABLE raw_users
                  ('dn','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType',
-                 'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','sIDHistory','userPrincipalName',
+                 'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName',
                  'manager','mail','groupType')''') 
-    c.execute('''CREATE TABLE raw_memberof ('dn_group','dn_user')''')
+    c.execute("CREATE TABLE raw_memberof ('dn_group','dn_user')")
+
     sql.commit()
     return
  
+# Build the SQL database schema
+def fix_db_indices(sql):
+    
+    c = sql.cursor()
+
+    # Create the indicies
+    c.execute("CREATE UNIQUE INDEX raw_users_dn on raw_users (dn)")
+    c.execute("CREATE UNIQUE INDEX raw_users_dnshostname on raw_users (dNSHostName)")
+    c.execute("CREATE UNIQUE INDEX raw_users_samaccountname on raw_users (sAMAccountName)")
+    c.execute("CREATE UNIQUE INDEX raw_memberof_group_user on raw_memberof('dn_group','dn_user')")
+    c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_user','dn_group')")
+
+    sql.commit()
+    return
+
 def insert_into_db(struct,sql):
     c = sql.cursor()
     ldap_single_params = ['cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType']
@@ -127,6 +145,11 @@ for line in lines:
 # We are at the last line, so process what
 # is left as a new block
 process_struct(current_dn,sql)
-sql.close()
 sys.stdout.write(".done\n")
+
+log("Applying indices..")
+fix_db_indices(sql):
+sys.stdout.write(".done\n")
+
+sql.close()
 log("Completed")
