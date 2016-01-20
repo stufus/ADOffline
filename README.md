@@ -30,6 +30,33 @@ This assumes that you have low privilege (e.g. standard user) access to a domain
 2. ldapsearch will generate an LDIF file which is an ASCII text file containing the AD structure. Import this into a SQLite database using adoffline.py.
 3. Query the SQLite database using a command line tool or a front end.
 
+## Efficiency
+
+The current version is not complete; there are several efficiency improvements to be made and features to be added. It currently:
+
+* Stores users, groups and computers
+* Main memberships (but not nested groups yet)
+
+This was tested on a real client domain with 56539 individual users, groups and computers. It took approximately 15 minutes to parse the original LDIF file and generate the database; on my hardware, this is roughly 60/sec.
+
+```
+AD LDAP to SQLite Offline Parser
+Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>
+
+[20/Jan/16 22:56:44] Creating database: /tmp/tmpKlkkYZ.20160120225644.ad-ldap.db
+[20/Jan/16 22:56:44] Reading LDIF...done
+[20/Jan/16 22:56:45] Parsing LDIF..done
+[20/Jan/16 23:11:47] Applying indices...done
+[20/Jan/16 23:12:04] Completed
+```
+
+The database size for the above example was 462MB which is perfectly manageable.
+
+```
+$ ls -lah /tmp/tmpKlkkYZ.20160120225644.ad-ldap.db
+-rw-r--r--  1 stuart  wheel   462M Jan 20 23:12 /tmp/tmpKlkkYZ.20160120225644.ad-ldap.db
+```
+
 ## Database Structure
 
 ## Examples
