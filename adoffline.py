@@ -141,13 +141,13 @@ def insert_into_db(struct,sql):
 
     # Make sure that this is a user, group or computer
     oc = None
-    if 'computer' IN struct['objectClass']:
+    if 'computer' in struct['objectClass']:
         oc = 'computer'
-    else if 'group' IN struct['objectClass']:
+    elif 'group' in struct['objectClass']:
         oc = 'group'
-    else if 'user' IN struct['objectClass']:
+    elif 'user' in struct['objectClass']:
         oc = 'user'
-    else
+    else:
         return
 
     ldap_values.insert(0,oc)
@@ -222,7 +222,7 @@ process_struct(current_dn,sql)
 sys.stdout.write(".done\n")
 
 log("Applying indices..")
-fix_db_indices(sql):
+fix_db_indices(sql)
 sys.stdout.write(".done\n")
 
 sql.close()
