@@ -327,7 +327,6 @@ create_views(sql)
 fix_db_indices(sql)
 sys.stdout.write(db_filename+"\n")
 
-log("Calculating chain of ancestry (nested groups)...\n")
 f = open(source_filename,"r")
 log("Reading LDIF..")
 # Open the LDAP file and read its contents
@@ -369,6 +368,7 @@ for line in lines:
 process_struct(current_dn,sql)
 sys.stdout.write("\n")
 
+log("Calculating chain of ancestry (nested groups)...\n")
 calculate_chain_of_ancestry(sql)
 sys.stdout.write("\n")
 log("Completed\n\n")
