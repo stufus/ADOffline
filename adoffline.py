@@ -184,7 +184,7 @@ def safe_struct_get(struct,name):
         val = int(struct[name][0])
         if not val:
             return int(0)
-        else
+        else:
             return val
 
     return struct[name][0]
