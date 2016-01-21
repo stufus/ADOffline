@@ -263,14 +263,15 @@ def calculate_chain_of_ancestry(sql):
     # Get the initial list of users
     c.execute("select dn from view_users")
     all_dn = c.fetchall()
-    all_dn_number = str(len(all_dn))
+    all_dn_number = len(all_dn)
     all_dn_counter = 0
     for user_dn in all_dn:
         all_dn_counter += 1
-        sys.stdout.write("\r  Processing user "+str(all_dn_counter)+"/"+all_dn_number)
+        percentage_count = "{0:.0f}%".format(float(all_dn_counter)/all_dn_number * 100)
         sys.stdout.flush()
         get_member_groups(c,user_dn[0],user_dn[0])
         sql.commit()
+        sys.stdout.write("\r  Processed line "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
 
 def get_member_groups(cursor,user_dn,original_user):
     cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [user_dn])
@@ -332,7 +333,7 @@ ldap_params = ['objectClass','title','cn','sn','description','instanceType','dis
 log("Parsing LDIF...\n")
 # Go through each line in the LDIF file
 main_count = 0
-num_lines = str(len(lines))
+num_lines = len(lines)
 for line in lines:
 
     # If it starts with DN, its a new "block"
@@ -347,7 +348,8 @@ for line in lines:
         update_struct(current_dn, p, match_param(line,p))
 
     main_count += 1
-    sys.stdout.write("\r  Processed line "+str(main_count)+"/"+num_lines)
+    percentage_count = "{0:.0f}%".format(float(main_count)/num_lines * 100)
+    sys.stdout.write("\r  Processed line "+str(main_count)+"/"+str(num_lines)+" ("+percentage_count+")")
     sys.stdout.flush()
 
 # We are at the last line, so process what
