@@ -73,8 +73,8 @@ def fix_db_indices(sql):
     c.execute("CREATE UNIQUE INDEX raw_users_dn on raw_users (dn)")
     c.execute("CREATE INDEX raw_users_dnshostname on raw_users (objectClass,dNSHostName)")
     c.execute("CREATE INDEX raw_users_samaccountname on raw_users (objectClass,sAMAccountName)")
-    c.execute("CREATE UNIQUE INDEX raw_memberof_group_user on raw_memberof('dn_group','dn_member')")
-    c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
+    c.execute("CREATE INDEX raw_memberof_group_user on raw_memberof('dn_group','dn_member')")
+    c.execute("CREATE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
 
     sql.commit()
     return
@@ -87,26 +87,26 @@ def create_views(sql):
     # Generate the main view with calculated fields
     c.execute('''CREATE VIEW view_raw_users AS select objectClass, dn, title, cn, sn, description, instanceType, displayName, name, dNSHostName, userAccountControl, badPwdCount, primaryGroupID, adminCount, objectSid, sid, rid, sAMAccountName, sAMAccountType, objectCategory, managedBy, givenName, info, department, company, homeDirectory, userPrincipalName, manager, mail, operatingSystem, operatingSystemVersion, operatingSystemServicePack, groupType,
      (CASE (userAccountControl&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SCRIPT,
-     (CASE (userAccountControl&0x00000002) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ACCOUNTDISABLE,
-	 (CASE (userAccountControl&0x00000008) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_HOMEDIR_REQUIRED,
-	 (CASE (userAccountControl&0x00000010) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_LOCKOUT,
-	 (CASE (userAccountControl&0x00000020) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_NOTREQD,
-	 (CASE (userAccountControl&0x00000040) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_CANT_CHANGE,
-	 (CASE (userAccountControl&0x00000080) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED,
-	 (CASE (userAccountControl&0x00000100) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TEMP_DUPLICATE_ACCOUNT,
-	 (CASE (userAccountControl&0x00000200) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_NORMAL_ACCOUNT,
-	 (CASE (userAccountControl&0x00000800) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_INTERDOMAIN_TRUST_ACCOUNT,
-	 (CASE (userAccountControl&0x00001000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_WORKSTATION_TRUST_ACCOUNT,
-	 (CASE (userAccountControl&0x00002000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SERVER_TRUST_ACCOUNT,
-	 (CASE (userAccountControl&0x00010000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_DONT_EXPIRE_PASSWD,
-	 (CASE (userAccountControl&0x00020000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_MNS_LOGON_ACCOUNT,
-	 (CASE (userAccountControl&0x00040000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SMARTCARD_REQUIRED,
-	 (CASE (userAccountControl&0x00080000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_FOR_DELEGATION,
-	 (CASE (userAccountControl&0x00100000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_NOT_DELEGATED,
-	 (CASE (userAccountControl&0x00200000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_USE_DES_KEY_ONLY,
-	 (CASE (userAccountControl&0x00400000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_DONT_REQUIRE_PREAUTH,
-	 (CASE (userAccountControl&0x00800001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_PASSWORD_EXPIRED,
-	 (CASE (userAccountControl&0x01000000) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION,
+     (CASE (userAccountControl&0x00000002) WHEN (0x00000002) THEN 1 ELSE 0 END) AS ADS_UF_ACCOUNTDISABLE,
+	 (CASE (userAccountControl&0x00000008) WHEN (0x00000008) THEN 1 ELSE 0 END) AS ADS_UF_HOMEDIR_REQUIRED,
+	 (CASE (userAccountControl&0x00000010) WHEN (0x00000010) THEN 1 ELSE 0 END) AS ADS_UF_LOCKOUT,
+	 (CASE (userAccountControl&0x00000020) WHEN (0x00000020) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_NOTREQD,
+	 (CASE (userAccountControl&0x00000040) WHEN (0x00000040) THEN 1 ELSE 0 END) AS ADS_UF_PASSWD_CANT_CHANGE,
+	 (CASE (userAccountControl&0x00000080) WHEN (0x00000080) THEN 1 ELSE 0 END) AS ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED,
+	 (CASE (userAccountControl&0x00000100) WHEN (0x00000100) THEN 1 ELSE 0 END) AS ADS_UF_TEMP_DUPLICATE_ACCOUNT,
+	 (CASE (userAccountControl&0x00000200) WHEN (0x00000200) THEN 1 ELSE 0 END) AS ADS_UF_NORMAL_ACCOUNT,
+	 (CASE (userAccountControl&0x00000800) WHEN (0x00000800) THEN 1 ELSE 0 END) AS ADS_UF_INTERDOMAIN_TRUST_ACCOUNT,
+	 (CASE (userAccountControl&0x00001000) WHEN (0x00001000) THEN 1 ELSE 0 END) AS ADS_UF_WORKSTATION_TRUST_ACCOUNT,
+	 (CASE (userAccountControl&0x00002000) WHEN (0x00002000) THEN 1 ELSE 0 END) AS ADS_UF_SERVER_TRUST_ACCOUNT,
+	 (CASE (userAccountControl&0x00010000) WHEN (0x00010000) THEN 1 ELSE 0 END) AS ADS_UF_DONT_EXPIRE_PASSWD,
+	 (CASE (userAccountControl&0x00020000) WHEN (0x00020000) THEN 1 ELSE 0 END) AS ADS_UF_MNS_LOGON_ACCOUNT,
+	 (CASE (userAccountControl&0x00040000) WHEN (0x00040000) THEN 1 ELSE 0 END) AS ADS_UF_SMARTCARD_REQUIRED,
+	 (CASE (userAccountControl&0x00080000) WHEN (0x00080000) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_FOR_DELEGATION,
+	 (CASE (userAccountControl&0x00100000) WHEN (0x00100000) THEN 1 ELSE 0 END) AS ADS_UF_NOT_DELEGATED,
+	 (CASE (userAccountControl&0x00200000) WHEN (0x00200000) THEN 1 ELSE 0 END) AS ADS_UF_USE_DES_KEY_ONLY,
+	 (CASE (userAccountControl&0x00400000) WHEN (0x00400000) THEN 1 ELSE 0 END) AS ADS_UF_DONT_REQUIRE_PREAUTH,
+	 (CASE (userAccountControl&0x00800000) WHEN (0x00800000) THEN 1 ELSE 0 END) AS ADS_UF_PASSWORD_EXPIRED,
+	 (CASE (userAccountControl&0x01000000) WHEN (0x01000000) THEN 1 ELSE 0 END) AS ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION,
 	 CASE WHEN (sAMAccountType==0) THEN 1 ELSE 0 END AS SAM_DOMAIN_OBJECT,
 	 CASE WHEN (sAMAccountType==0x10000000) THEN 1 ELSE 0 END AS SAM_GROUP_OBJECT,
 	 CASE WHEN (sAMAccountType==0x10000001) THEN 1 ELSE 0 END AS SAM_NON_SECURITY_GROUP_OBJECT,
@@ -167,6 +167,11 @@ def insert_into_db(struct,sql):
         for m in struct['memberOf']:
             sql_memberof = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
             c.execute(sql_memberof, [m,struct['dn']])
+
+    if 'member' in struct and oc == 'group':
+        for m in struct['member']:
+            sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
+            c.execute(sql_member, [struct['dn'],m])
 
     sql.commit()
     return
