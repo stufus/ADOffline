@@ -9,7 +9,16 @@ import os
 # This function looks for "x: y" in an LDIF
 # file and effectively splits them up using a regex
 def match_param(line,param):
-    var = re.match('^'+param+'::?\s([^$]+)\s*$', line.strip())
+    var = None
+
+    # These ones have two ::'s, presuambly to signify that
+    # they are base64 encoded
+    if param in ['objectSid','sIDHistory','objectGUID']:
+        var = re.match('^'+param+'::\s([^$]+)\s*$', line.strip())
+    else:
+        # Everything else should be key: value, not key:: value
+        var = re.match('^'+param+':\s([^$]+)\s*$', line.strip())
+
     if var != None:
         return var.group(1).strip()
 
@@ -45,7 +54,7 @@ def build_db_schema(sql):
 
     # Create the tables
     c.execute('''CREATE TABLE raw_users
-                 ('objectClass','dn','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType',
+                 ('objectClass','dn','title', 'cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType',
                  'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName',
                  'manager','mail','groupType')''') 
     c.execute("CREATE TABLE raw_memberof ('dn_group','dn_member')")
@@ -53,7 +62,7 @@ def build_db_schema(sql):
     sql.commit()
     return
  
-# Build the SQL database schema
+# Add indexes to the schema
 def fix_db_indices(sql):
     
     c = sql.cursor()
@@ -68,12 +77,13 @@ def fix_db_indices(sql):
     sql.commit()
     return
 
+# Create the database views (bitwise expansion etc)
 def create_views(sql):
     
     c = sql.cursor()
 
     # Generate the main view with calculated fields
-    c.execute('''CREATE VIEW view_raw_users AS select objectClass, dn, cn, sn, description, instanceType, displayName, name, dNSHostName, userAccountControl, badPwdCount, primaryGroupID, adminCount, objectSid, sid, rid, sAMAccountName, sAMAccountType, objectCategory, managedBy, givenName, info, department, company, homeDirectory, userPrincipalName, manager, mail, operatingSystem, operatingSystemVersion, operatingSystemServicePack, groupType,
+    c.execute('''CREATE VIEW view_raw_users AS select objectClass, dn, title, cn, sn, description, instanceType, displayName, name, dNSHostName, userAccountControl, badPwdCount, primaryGroupID, adminCount, objectSid, sid, rid, sAMAccountName, sAMAccountType, objectCategory, managedBy, givenName, info, department, company, homeDirectory, userPrincipalName, manager, mail, operatingSystem, operatingSystemVersion, operatingSystemServicePack, groupType,
      (CASE (userAccountControl&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SCRIPT,
      (CASE (userAccountControl&0x00000002) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_ACCOUNTDISABLE,
 	 (CASE (userAccountControl&0x00000008) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_HOMEDIR_REQUIRED,
@@ -125,15 +135,16 @@ def create_views(sql):
     sql.commit()
     return
 
+# Insert the new user/group/computer into the database
 def insert_into_db(struct,sql):
     c = sql.cursor()
-    ldap_single_params = ['cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType']
+    ldap_single_params = ['title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType']
     ldap_values = []
     for ind in ldap_single_params:
         ldap_values.append(safe_struct_get(struct,ind))
 
     # Raw_users contains everything
-    sql_statement = "insert into raw_users ('objectClass','dn','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    sql_statement = "insert into raw_users ('objectClass','dn','title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     ldap_values.insert(0,struct['dn'])
 
     # Make sure that this is a user, group or computer
@@ -158,6 +169,7 @@ def insert_into_db(struct,sql):
     sql.commit()
     return
 
+# Get the specific value from the dict name/value pair
 def safe_struct_get(struct,name):
     if not struct:
         return None
@@ -168,24 +180,38 @@ def safe_struct_get(struct,name):
     if not struct[name][0]:
         return None
 
+    if name in ['instanceType','userAccountControl','badPwdCount','primaryGroupID','adminCount','sAMAccountType','groupType']:
+        val = int(struct[name][0])
+        if not val:
+            return int(0)
+        else
+            return val
+
     return struct[name][0]
 
+# Write a log entry to stdout
 def log(strval):
     sys.stdout.write('['+time.strftime("%d/%b/%y %H:%M:%S")+'] '+strval)
     sys.stdout.flush()
+    return
+
+# Write a log entry to stderr
+def err(strval):
+    sys.stderr.write('['+time.strftime("%d/%b/%y %H:%M:%S")+'] '+strval)
+    sys.stderr.flush()
     return
 
 # Create the SQLite3 database
 sys.stdout.write("AD LDAP to SQLite Offline Parser\nStuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>\n\n")
 
 if len(sys.argv)<2:
-    log("Specify the source LDIF filename on the command line. Create it with a command such as:")
-    log("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no \"(objectClass=user)\" > ldap.output")
+    err("Specify the source LDIF filename on the command line. Create it with a command such as:\n")
+    err("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no \"(objectClass=user)\" > ldap.output\n")
     sys.exit(1)
 
 source_filename = sys.argv[1]
 if not os.path.isfile(source_filename):
-    log("Unable to read "+source_filename+". Make sure this is a valid file.")
+    err("Unable to read "+source_filename+". Make sure this is a valid file.\n")
     sys.exit(2)
 
 
@@ -209,7 +235,7 @@ f.close()
 current_dn = {}
 
 # The list of ldap parameters to save
-ldap_params = ['objectClass','cn','sn','description','instanceType','displayName','member','memberOf','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','sIDHistory','userPrincipalName','manager','mail','groupType']
+ldap_params = ['objectClass','title','cn','sn','description','instanceType','displayName','member','memberOf','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','sIDHistory','userPrincipalName','manager','mail','groupType']
 
 log("Parsing LDIF.")
 # Go through each line in the LDIF file
