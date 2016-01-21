@@ -59,7 +59,7 @@ def build_db_schema(sql):
                  ('objectClass','dn','title', 'cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType',
                  'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName',
                  'manager','mail','groupType')''') 
-    c.execute("CREATE TABLE raw_memberof ('dn_group','dn_member')")
+    c.execute("CREATE TABLE raw_memberof ('dn_group' TEXT NOT NULL,'dn_member' TEXT NOT NULL, PRIMARY KEY('dn_group','dn_member'))")
 
     sql.commit()
     return
@@ -73,8 +73,7 @@ def fix_db_indices(sql):
     c.execute("CREATE UNIQUE INDEX raw_users_dn on raw_users (dn)")
     c.execute("CREATE INDEX raw_users_dnshostname on raw_users (objectClass,dNSHostName)")
     c.execute("CREATE INDEX raw_users_samaccountname on raw_users (objectClass,sAMAccountName)")
-    c.execute("CREATE INDEX raw_memberof_group_user on raw_memberof('dn_group','dn_member')")
-    c.execute("CREATE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
+    c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
 
     sql.commit()
     return
@@ -134,6 +133,68 @@ def create_views(sql):
     c.execute("CREATE VIEW view_users AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'user'")
     c.execute("CREATE VIEW view_computers AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'computer'")
 
+    # Create the merged table
+    c.execute('''CREATE VIEW view_groupmembers AS select g.objectClass as group_objectClass, g.dn as group_dn, g.title as group_title, g.cn as group_cn, g.sn as group_sn, g.description as group_description, g.instanceType as group_instanceType, g.displayName as group_displayName, g.name as group_name, g.dNSHostName as group_dNSHostName, g.userAccountControl as group_userAccountControl, g.badPwdCount as group_badPwdCount, g.primaryGroupID as group_primaryGroupID, g.adminCount as group_adminCount, g.objectSid as group_objectSid, g.sid as group_sid, g.rid as group_rid, g.sAMAccountName as group_sAMAccountName, g.sAMAccountType as group_sAMAccountType, g.objectCategory as group_objectCategory, g.managedBy as group_managedBy, g.givenName as group_givenName, g.info as group_info, g.department as group_department, g.company as group_company, g.homeDirectory as group_homeDirectory, g.userPrincipalName as group_userPrincipalName, g.manager as group_manager, g.mail as group_mail, g.groupType as group_groupType, g.ADS_UF_SCRIPT as group_ADS_UF_SCRIPT,
+	g.ADS_UF_ACCOUNTDISABLE AS group_ADS_UF_ACCOUNTDISABLE,
+	g.ADS_UF_HOMEDIR_REQUIRED AS group_ADS_UF_HOMEDIR_REQUIRED,
+	g.ADS_UF_LOCKOUT AS group_ADS_UF_LOCKOUT,
+	g.ADS_UF_PASSWD_NOTREQD AS group_ADS_UF_PASSWD_NOTREQD,
+	g.ADS_UF_PASSWD_CANT_CHANGE AS group_ADS_UF_PASSWD_CANT_CHANGE,
+	g.ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED AS group_ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED,
+	g.ADS_UF_TEMP_DUPLICATE_ACCOUNT AS group_ADS_UF_TEMP_DUPLICATE_ACCOUNT,
+	g.ADS_UF_NORMAL_ACCOUNT AS group_ADS_UF_NORMAL_ACCOUNT,
+	g.ADS_UF_INTERDOMAIN_TRUST_ACCOUNT AS group_ADS_UF_INTERDOMAIN_TRUST_ACCOUNT,
+	g.ADS_UF_WORKSTATION_TRUST_ACCOUNT AS group_ADS_UF_WORKSTATION_TRUST_ACCOUNT,
+	g.ADS_UF_SERVER_TRUST_ACCOUNT AS group_ADS_UF_SERVER_TRUST_ACCOUNT,
+	g.ADS_UF_DONT_EXPIRE_PASSWD AS group_ADS_UF_DONT_EXPIRE_PASSWD,
+	g.ADS_UF_MNS_LOGON_ACCOUNT AS group_ADS_UF_MNS_LOGON_ACCOUNT,
+	g.ADS_UF_SMARTCARD_REQUIRED AS group_ADS_UF_SMARTCARD_REQUIRED,
+	g.ADS_UF_TRUSTED_FOR_DELEGATION AS group_ADS_UF_TRUSTED_FOR_DELEGATION,
+	g.ADS_UF_NOT_DELEGATED AS group_ADS_UF_NOT_DELEGATED,
+	g.ADS_UF_USE_DES_KEY_ONLY AS group_ADS_UF_USE_DES_KEY_ONLY,
+	g.ADS_UF_DONT_REQUIRE_PREAUTH AS group_ADS_UF_DONT_REQUIRE_PREAUTH,
+	g.ADS_UF_PASSWORD_EXPIRED AS group_ADS_UF_PASSWORD_EXPIRED,
+	g.ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION AS group_ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION,
+    (CASE (g.groupType&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS group_GROUP_CREATED_BY_SYSTEM,
+    (CASE (g.groupType&0x00000002) WHEN (0x00000002) THEN 1 ELSE 0 END) AS group_GROUP_SCOPE_GLOBAL,
+    (CASE (g.groupType&0x00000004) WHEN (0x00000004) THEN 1 ELSE 0 END) AS group_GROUP_SCOPE_LOCAL,
+    (CASE (g.groupType&0x00000008) WHEN (0x00000008) THEN 1 ELSE 0 END) AS group_GROUP_SCOPE_UNIVERSAL,
+    (CASE (g.groupType&0x00000010) WHEN (0x00000010) THEN 1 ELSE 0 END) AS group_GROUP_SAM_APP_BASIC,
+    (CASE (g.groupType&0x00000020) WHEN (0x00000020) THEN 1 ELSE 0 END) AS group_GROUP_SAM_APP_QUERY,
+    (CASE (g.groupType&0x80000000) WHEN (0x80000000) THEN 1 ELSE 0 END) AS group_GROUP_SECURITY,
+    (CASE (g.groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS group_GROUP_DISTRIBUTION,
+    m.objectClass as member_objectClass, m.dn as member_dn, m.title as member_title, m.cn as member_cn, m.sn as member_sn, m.description as member_description, m.instanceType as member_instanceType, m.displayName as member_displayName, m.name as member_name, m.dNSHostName as member_dNSHostName, m.userAccountControl as member_userAccountControl, m.badPwdCount as member_badPwdCount, m.primaryGroupID as member_primaryGroupID, m.adminCount as member_adminCount, m.objectSid as member_objectSid, m.sid as member_sid, m.rid as member_rid, m.sAMAccountName as member_sAMAccountName, m.sAMAccountType as member_sAMAccountType, m.objectCategory as member_objectCategory, m.managedBy as member_managedBy, m.givenName as member_givenName, m.info as member_info, m.department as member_department, m.company as member_company, m.homeDirectory as member_homeDirectory, m.userPrincipalName as member_userPrincipalName, m.manager as member_manager, m.mail as member_mail, m.operatingSystem as member_operatingSystem, m.operatingSystemVersion as member_operatingSystemVersion, m.operatingSystemServicePack as member_operatingSystemServicePack, m.groupType as member_groupType, m.ADS_UF_SCRIPT as member_ADS_UF_SCRIPT,
+	m.ADS_UF_ACCOUNTDISABLE AS member_ADS_UF_ACCOUNTDISABLE,
+	m.ADS_UF_HOMEDIR_REQUIRED AS member_ADS_UF_HOMEDIR_REQUIRED,
+	m.ADS_UF_LOCKOUT AS member_ADS_UF_LOCKOUT,
+	m.ADS_UF_PASSWD_NOTREQD AS member_ADS_UF_PASSWD_NOTREQD,
+	m.ADS_UF_PASSWD_CANT_CHANGE AS member_ADS_UF_PASSWD_CANT_CHANGE,
+	m.ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED AS member_ADS_UF_ENCRYPTED_TEXT_PASSWORD_ALLOWED,
+	m.ADS_UF_TEMP_DUPLICATE_ACCOUNT AS member_ADS_UF_TEMP_DUPLICATE_ACCOUNT,
+	m.ADS_UF_NORMAL_ACCOUNT AS member_ADS_UF_NORMAL_ACCOUNT,
+	m.ADS_UF_INTERDOMAIN_TRUST_ACCOUNT AS member_ADS_UF_INTERDOMAIN_TRUST_ACCOUNT,
+	m.ADS_UF_WORKSTATION_TRUST_ACCOUNT AS member_ADS_UF_WORKSTATION_TRUST_ACCOUNT,
+	m.ADS_UF_SERVER_TRUST_ACCOUNT AS member_ADS_UF_SERVER_TRUST_ACCOUNT,
+	m.ADS_UF_DONT_EXPIRE_PASSWD AS member_ADS_UF_DONT_EXPIRE_PASSWD,
+	m.ADS_UF_MNS_LOGON_ACCOUNT AS member_ADS_UF_MNS_LOGON_ACCOUNT,
+	m.ADS_UF_SMARTCARD_REQUIRED AS member_ADS_UF_SMARTCARD_REQUIRED,
+	m.ADS_UF_TRUSTED_FOR_DELEGATION AS member_ADS_UF_TRUSTED_FOR_DELEGATION,
+	m.ADS_UF_NOT_DELEGATED AS member_ADS_UF_NOT_DELEGATED,
+	m.ADS_UF_USE_DES_KEY_ONLY AS member_ADS_UF_USE_DES_KEY_ONLY,
+	m.ADS_UF_DONT_REQUIRE_PREAUTH AS member_ADS_UF_DONT_REQUIRE_PREAUTH,
+	m.ADS_UF_PASSWORD_EXPIRED AS member_ADS_UF_PASSWORD_EXPIRED,
+	m.ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION AS member_ADS_UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION,
+    (CASE (m.groupType&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS member_GROUP_CREATED_BY_SYSTEM,
+    (CASE (m.groupType&0x00000002) WHEN (0x00000002) THEN 1 ELSE 0 END) AS member_GROUP_SCOPE_GLOBAL,
+    (CASE (m.groupType&0x00000004) WHEN (0x00000004) THEN 1 ELSE 0 END) AS member_GROUP_SCOPE_LOCAL,
+    (CASE (m.groupType&0x00000008) WHEN (0x00000008) THEN 1 ELSE 0 END) AS member_GROUP_SCOPE_UNIVERSAL,
+    (CASE (m.groupType&0x00000010) WHEN (0x00000010) THEN 1 ELSE 0 END) AS member_GROUP_SAM_APP_BASIC,
+    (CASE (m.groupType&0x00000020) WHEN (0x00000020) THEN 1 ELSE 0 END) AS member_GROUP_SAM_APP_QUERY,
+    (CASE (m.groupType&0x80000000) WHEN (0x80000000) THEN 1 ELSE 0 END) AS member_GROUP_SECURITY,
+    (CASE (m.groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS member_GROUP_DISTRIBUTION 
+    FROM raw_memberof r 
+    INNER JOIN view_groups g ON r.dn_group = g.dn
+    INNER JOIN view_groups m ON r.dn_member = m.dn ''')
     sql.commit()
     return
 
