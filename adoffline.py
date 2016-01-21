@@ -273,6 +273,15 @@ def calculate_chain_of_ancestry(sql):
         sql.commit()
         sys.stdout.write("\r  Processed line "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
 
+def display_totals(sql):
+    c = sql.cursor()
+    c.execute("select count(*) from view_users")
+    print "     Users: "+str(c.fetchone()[0])
+    c.execute("select count(*) from view_groups")
+    print "    Groups: "+str(c.fetchone()[0])
+    c.execute("select count(*) from view_computers")
+    print " Computers: "+str(c.fetchone()[0])
+
 def get_member_groups(cursor,user_dn,original_user):
     cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [user_dn])
     all_parents = cursor.fetchall()
@@ -364,6 +373,8 @@ sys.stdout.write(".done\n")
 log("Calculating chain of ancestry (nested groups)...\n")
 calculate_chain_of_ancestry(sql)
 sys.stdout.write("\n")
-
+log("Completed\n\n")
+display_totals(sql)
+sys.stdout.write("\n")
 sql.close()
-log("Completed\n")
+exit(0)
