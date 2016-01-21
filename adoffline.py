@@ -324,8 +324,10 @@ db_file.close()
 sql = sqlite3.connect(db_filename)
 build_db_schema(sql)
 create_views(sql)
+fix_db_indices(sql)
 sys.stdout.write(db_filename+"\n")
 
+log("Calculating chain of ancestry (nested groups)...\n")
 f = open(source_filename,"r")
 log("Reading LDIF..")
 # Open the LDAP file and read its contents
@@ -345,6 +347,11 @@ main_count = 0
 num_lines = len(lines)
 for line in lines:
 
+    main_count += 1
+    percentage_count = "{0:.0f}%".format(float(main_count)/num_lines * 100)
+    sys.stdout.write("\r  Reading line "+str(main_count)+"/"+str(num_lines)+" ("+percentage_count+")")
+    sys.stdout.flush()
+
     # If it starts with DN, its a new "block"
     val = match_param(line,'dn')
     if val != None: 
@@ -356,21 +363,12 @@ for line in lines:
     for p in ldap_params:
         update_struct(current_dn, p, match_param(line,p))
 
-    main_count += 1
-    percentage_count = "{0:.0f}%".format(float(main_count)/num_lines * 100)
-    sys.stdout.write("\r  Processed line "+str(main_count)+"/"+str(num_lines)+" ("+percentage_count+")")
-    sys.stdout.flush()
 
 # We are at the last line, so process what
 # is left as a new block
 process_struct(current_dn,sql)
 sys.stdout.write("\n")
 
-log("Applying indices..")
-fix_db_indices(sql)
-sys.stdout.write(".done\n")
-
-log("Calculating chain of ancestry (nested groups)...\n")
 calculate_chain_of_ancestry(sql)
 sys.stdout.write("\n")
 log("Completed\n\n")
