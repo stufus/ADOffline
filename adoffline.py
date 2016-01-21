@@ -193,8 +193,8 @@ def create_views(sql):
     (CASE (m.groupType&0x80000000) WHEN (0x80000000) THEN 1 ELSE 0 END) AS member_GROUP_SECURITY,
     (CASE (m.groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS member_GROUP_DISTRIBUTION 
     FROM raw_memberof r 
-    INNER JOIN view_groups g ON r.dn_group = g.dn
-    INNER JOIN view_groups m ON r.dn_member = m.dn ''')
+    INNER JOIN view_raw_users g ON r.dn_group = g.dn
+    INNER JOIN view_raw_users m ON r.dn_member = m.dn ''')
     sql.commit()
     return
 
@@ -224,15 +224,14 @@ def insert_into_db(struct,sql):
     ldap_values.insert(0,oc)
     c.execute(sql_statement, ldap_values)
 
+    sql_memberof = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
     if 'memberOf' in struct:
         for m in struct['memberOf']:
-            sql_memberof = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
             c.execute(sql_memberof, [m,struct['dn']])
 
     if 'member' in struct and oc == 'group':
         for m in struct['member']:
-            sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
-            c.execute(sql_member, [struct['dn'],m])
+            c.execute(sql_memberof, [struct['dn'],m])
 
     sql.commit()
     return
@@ -256,6 +255,31 @@ def safe_struct_get(struct,name):
             return val
 
     return struct[name][0]
+
+# Sort out the nested groups
+def calculate_chain_of_ancestry(sql):
+    c = sql.cursor()
+
+    # Get the initial list of users
+    c.execute("select dn from view_users")
+    all_dn = c.fetchall()
+    all_dn_number = str(len(all_dn))
+    all_dn_counter = 0
+    for user_dn in all_dn:
+        all_dn_counter += 1
+        sys.stdout.write("\r  Processing user "+str(all_dn_counter)+"/"+all_dn_number)
+        sys.stdout.flush()
+        get_member_groups(c,user_dn[0],user_dn[0])
+        sql.commit()
+
+def get_member_groups(cursor,user_dn,original_user):
+    cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [user_dn])
+    all_parents = cursor.fetchall()
+    for parent_group in all_parents:
+        # Recursively obtain parent groups
+        get_member_groups(cursor,parent_group[0],original_user)
+        sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
+        cursor.execute(sql_member, [parent_group[0],original_user])
 
 # Write a log entry to stdout
 def log(strval):
@@ -305,8 +329,10 @@ current_dn = {}
 # The list of ldap parameters to save
 ldap_params = ['objectClass','title','cn','sn','description','instanceType','displayName','member','memberOf','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','sIDHistory','userPrincipalName','manager','mail','groupType']
 
-log("Parsing LDIF.")
+log("Parsing LDIF...\n")
 # Go through each line in the LDIF file
+main_count = 0
+num_lines = str(len(lines))
 for line in lines:
 
     # If it starts with DN, its a new "block"
@@ -319,15 +345,23 @@ for line in lines:
 
     for p in ldap_params:
         update_struct(current_dn, p, match_param(line,p))
-    
+
+    main_count += 1
+    sys.stdout.write("\r  Processed line "+str(main_count)+"/"+num_lines)
+    sys.stdout.flush()
+
 # We are at the last line, so process what
 # is left as a new block
 process_struct(current_dn,sql)
-sys.stdout.write(".done\n")
+sys.stdout.write("\n")
 
 log("Applying indices..")
 fix_db_indices(sql)
 sys.stdout.write(".done\n")
 
+log("Calculating chain of ancestry (nested groups)...\n")
+calculate_chain_of_ancestry(sql)
+sys.stdout.write("\n")
+
 sql.close()
-log("Completed")
+log("Completed\n")
