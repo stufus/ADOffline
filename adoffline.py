@@ -41,10 +41,12 @@ def update_struct(struct,name,val):
 def process_struct(struct,sql):
 
     # If there isn't a DN in there, we aren't interested
-    if not 'dn' in struct or not 'objectClass' in struct or not 'user' in struct['objectClass']:
+    if not 'dn' in struct or not 'objectClass' in struct: 
         return
 
-    insert_into_db(struct,sql)
+    if 'user' in struct['objectClass'] or 'group' in struct['objectClass']:
+        insert_into_db(struct,sql)
+
     return
 
 # Build the SQL database schema
@@ -206,7 +208,7 @@ sys.stdout.write("AD LDAP to SQLite Offline Parser\nStuart Morgan (@ukstufus) <s
 
 if len(sys.argv)<2:
     err("Specify the source LDIF filename on the command line. Create it with a command such as:\n")
-    err("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no \"(objectClass=user)\" > ldap.output\n")
+    err("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no \"(|(objectClass=group)(objectClass=user))\" > ldap.output\n")
     sys.exit(1)
 
 source_filename = sys.argv[1]
