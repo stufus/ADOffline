@@ -278,13 +278,13 @@ def calculate_chain_of_ancestry(sql):
 def display_totals(sql):
     c = sql.cursor()
     c.execute("select count(*) from view_users")
-    print "              Users: "+str(c.fetchone()[0])
+    print "        Users: "+str(c.fetchone()[0])
     c.execute("select count(*) from view_groups")
-    print "             Groups: "+str(c.fetchone()[0])
+    print "       Groups: "+str(c.fetchone()[0])
     c.execute("select count(*) from view_computers")
-    print "          Computers: "+str(c.fetchone()[0])
+    print "    Computers: "+str(c.fetchone()[0])
     c.execute("select count(*) from view_groupmembers")
-    print " Group/Member Assoc: "+str(c.fetchone()[0])
+    print " Associations: "+str(c.fetchone()[0])
     return
 
 def get_member_groups(cursor,user_dn,original_user):
