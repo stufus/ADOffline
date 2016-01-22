@@ -258,6 +258,9 @@ def safe_struct_get(struct,name):
 
 # Sort out the nested groups
 def calculate_chain_of_ancestry(sql):
+    # Ugly hack to deal with the recursion limit
+    sys.setrecursionlimit(15000)
+
     c = sql.cursor()
 
     # Get the initial list of users
@@ -315,7 +318,6 @@ source_filename = sys.argv[1]
 if not os.path.isfile(source_filename):
     err("Unable to read "+source_filename+". Make sure this is a valid file.\n")
     sys.exit(2)
-
 
 log("Creating database: ")
 db_file = tempfile.NamedTemporaryFile(delete=False)
