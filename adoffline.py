@@ -258,8 +258,6 @@ def safe_struct_get(struct,name):
 
 # Sort out the nested groups
 def calculate_chain_of_ancestry(sql):
-    # Ugly hack to deal with the recursion limit
-    sys.setrecursionlimit(15000)
 
     c = sql.cursor()
 
@@ -275,24 +273,35 @@ def calculate_chain_of_ancestry(sql):
         get_member_groups(c,user_dn[0],user_dn[0])
         sql.commit()
         sys.stdout.write("\r  Processed line "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
+    return
 
 def display_totals(sql):
     c = sql.cursor()
     c.execute("select count(*) from view_users")
-    print "     Users: "+str(c.fetchone()[0])
+    print "              Users: "+str(c.fetchone()[0])
     c.execute("select count(*) from view_groups")
-    print "    Groups: "+str(c.fetchone()[0])
+    print "             Groups: "+str(c.fetchone()[0])
     c.execute("select count(*) from view_computers")
-    print " Computers: "+str(c.fetchone()[0])
+    print "          Computers: "+str(c.fetchone()[0])
+    c.execute("select count(*) from view_groupmembers")
+    print " Group/Member Assoc: "+str(c.fetchone()[0])
+    return
 
 def get_member_groups(cursor,user_dn,original_user):
+    sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
     cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [user_dn])
     all_parents = cursor.fetchall()
+
+    # If there are no more groups, break out
+    if all_parents == None or len(all_parents)==0:
+        return
+
+    # Now go through each of the groups and enumerate further groups
     for parent_group in all_parents:
         # Recursively obtain parent groups
         get_member_groups(cursor,parent_group[0],original_user)
-        sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
         cursor.execute(sql_member, [parent_group[0],original_user])
+    return
 
 # Write a log entry to stdout
 def log(strval):
@@ -318,6 +327,9 @@ source_filename = sys.argv[1]
 if not os.path.isfile(source_filename):
     err("Unable to read "+source_filename+". Make sure this is a valid file.\n")
     sys.exit(2)
+
+# Ugly hack to deal with the recursion limit
+sys.setrecursionlimit(150000)
 
 log("Creating database: ")
 db_file = tempfile.NamedTemporaryFile(delete=False)
