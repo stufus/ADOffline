@@ -1,3 +1,4 @@
+import pprint
 import base64
 import time
 import struct
@@ -195,7 +196,8 @@ def create_views(sql):
     (CASE (m.groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS member_GROUP_DISTRIBUTION 
     FROM raw_memberof r 
     INNER JOIN view_raw_users g ON r.dn_group = g.dn
-    INNER JOIN view_raw_users m ON r.dn_member = m.dn ''')
+    INNER JOIN view_raw_users m ON r.dn_member = m.dn 
+    WHERE g.dn != m.dn ''')
 
     c.execute("CREATE VIEW view_activegroupusers AS select * from view_groupmembers where member_objectClass = 'user' and member_ADS_UF_LOCKOUT = 0 and member_ADS_UF_ACCOUNTDISABLE = 0")
 
@@ -240,11 +242,13 @@ def insert_into_db(struct,sql):
     sql_memberof = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
     if 'memberOf' in struct:
         for m in struct['memberOf']:
-            c.execute(sql_memberof, [m,struct['dn']])
+            if m != struct['dn']:
+                c.execute(sql_memberof, [m,struct['dn']])
 
     if 'member' in struct and oc == 'group':
         for m in struct['member']:
-            c.execute(sql_memberof, [struct['dn'],m])
+            if m != struct['dn']:
+                c.execute(sql_memberof, [struct['dn'],m])
 
     sql.commit()
     return
@@ -328,6 +332,7 @@ def get_member_groups(cursor,user_dn):
         initial_groups = nested_groups
         if nested_groups == None:
             break
+        pprint.pprint(nested_groups)
     
     # For this specific user, also look at the primaryGroupId and add that group too
     sql_pgid = 'replace into raw_memberof (dn_group,dn_member) VALUES ((select dn from view_groups where rid = (select primaryGroupId from view_users where dn = ?)), ?)'
@@ -342,7 +347,7 @@ def update_member_groups_and_return_next_level(cursor,fetcheddn,original_user,up
     # Get the groups that the provided DN is in. Go through each of the DNs provided
     # in the array, retrieve the groups that they are members of and add it to a master list
     for dn in fetcheddn:
-        cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [dn])
+        cursor.execute("select group_dn from view_groupmembers where member_dn = ? and member_dn != group_dn", [dn])
         all_children = cursor.fetchall()
 
         # The new_children list now contains a list without each one being in its own array
