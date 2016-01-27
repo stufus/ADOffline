@@ -1,5 +1,7 @@
+import base64
 import time
 import pprint
+import struct
 import tempfile
 import sqlite3
 import re
@@ -195,6 +197,9 @@ def create_views(sql):
     FROM raw_memberof r 
     INNER JOIN view_raw_users g ON r.dn_group = g.dn
     INNER JOIN view_raw_users m ON r.dn_member = m.dn ''')
+
+    c.execute("CREATE VIEW view_activegroupusers AS select * from view_groupmembers where member_objectClass = 'user' and member_ADS_UF_LOCKOUT = 0 and member_ADS_UF_ACCOUNTDISABLE = 0")
+
     sql.commit()
     return
 
@@ -207,7 +212,7 @@ def insert_into_db(struct,sql):
         ldap_values.append(safe_struct_get(struct,ind))
 
     # Raw_users contains everything
-    sql_statement = "insert into raw_users ('objectClass','dn','title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    sql_statement = "insert into raw_users ('rid','sid','objectClass','dn','title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     ldap_values.insert(0,struct['dn'])
 
     # Make sure that this is a user, group or computer
@@ -220,8 +225,17 @@ def insert_into_db(struct,sql):
         oc = 'user'
     else:
         return
-
     ldap_values.insert(0,oc)
+
+    # Now calculate the sid and rid
+    sid, rid = get_string_sid_from_binary_sid(safe_struct_get(struct,'objectSid'))
+    if sid and rid:
+        ldap_values.insert(0,sid)
+        ldap_values.insert(0,rid)
+    else:
+        ldap_values.insert(0,'')
+        ldap_values.insert(0,'')
+        
     c.execute(sql_statement, ldap_values)
 
     sql_memberof = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
@@ -235,6 +249,21 @@ def insert_into_db(struct,sql):
 
     sql.commit()
     return
+
+# https://blogs.msdn.microsoft.com/oldnewthing/20040315-00/?p=40253/
+def get_string_sid_from_binary_sid(base64string):
+    binarysid = base64.b64decode(base64string)
+    version = struct.unpack('B', binarysid[0])[0]
+    assert version == 1, version
+    length = struct.unpack('B', binarysid[1])[0]
+    authority = struct.unpack('>Q', '\x00\x00' + binarysid[2:8])[0]
+    string = 'S-%d-%d' % (version, authority)
+    binarysid = binarysid[8:]
+    assert len(binarysid) == 4 * length
+    for i in xrange(length):
+        value = struct.unpack('<L', binarysid[4*i:4*(i+1)])[0]
+        string += '-%d' % (value)
+    return (string,value)
 
 # Get the specific value from the dict name/value pair
 def safe_struct_get(struct,name):
@@ -270,7 +299,7 @@ def calculate_chain_of_ancestry(sql):
         all_dn_counter += 1
         percentage_count = "{0:.0f}%".format(float(all_dn_counter)/all_dn_number * 100)
         sys.stdout.flush()
-        get_member_groups(c,user_dn[0],user_dn[0])
+        get_member_groups(c,user_dn[0])
         sql.commit()
         sys.stdout.write("\r  Processed line "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
     return
@@ -287,21 +316,51 @@ def display_totals(sql):
     print " Associations: "+str(c.fetchone()[0])
     return
 
-def get_member_groups(cursor,user_dn,original_user):
-    sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
-    cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [user_dn])
-    all_parents = cursor.fetchall()
+def get_member_groups(cursor,user_dn):
 
-    # If there are no more groups, break out
-    if all_parents == None or len(all_parents)==0:
+    # Firstly, retrieve the list of groups that the provided DN belongs to
+    initial_groups = update_member_groups_and_return_next_level(cursor,[user_dn],user_dn,False)
+    if initial_groups == None:
         return
 
-    # Now go through each of the groups and enumerate further groups
-    for parent_group in all_parents:
-        # Recursively obtain parent groups
-        get_member_groups(cursor,parent_group[0],original_user)
-        cursor.execute(sql_member, [parent_group[0],original_user])
+    # Loop through each chunk of groups
+    while True:
+        pprint.pprint(initial_groups)
+        nested_groups = update_member_groups_and_return_next_level(cursor,initial_groups,user_dn,True)
+        initial_groups = nested_groups
+        if nested_groups == None:
+            break
+    
+    # For this specific user, also look at the primaryGroupId and add that group too
+    sql_pgid = 'replace into raw_memberof (dn_group,dn_member) VALUES ((select dn from view_groups where rid = (select primaryGroupId from view_users where dn = ?)), ?)'
+    cursor.execute(sql_pgid, [user_dn, user_dn])
     return
+
+def update_member_groups_and_return_next_level(cursor,fetcheddn,original_user,updatedb):
+
+    sql_member = 'replace into raw_memberof (dn_group,dn_member) VALUES (?,?)'
+    new_children = []
+
+    # Get the groups that the provided DN is in. Go through each of the DNs provided
+    # in the array, retrieve the groups that they are members of and add it to a master list
+    for dn in fetcheddn:
+        cursor.execute("select group_dn from view_groupmembers where member_dn = ?", [dn])
+        all_children = cursor.fetchall()
+
+        # The new_children list now contains a list without each one being in its own array
+        for child in all_children:
+            new_children.append(child[0])
+
+    # Now that we have a list of new groups, add the old list to the database
+    if updatedb == True:
+        for dn in fetcheddn:    
+            cursor.execute(sql_member, [dn,original_user])
+
+    # If there are no more descendents, return None
+    # Otherwise return the next load of groups
+    if not len(new_children):
+        return None
+    return new_children
 
 # Write a log entry to stdout
 def log(strval):
@@ -327,9 +386,6 @@ source_filename = sys.argv[1]
 if not os.path.isfile(source_filename):
     err("Unable to read "+source_filename+". Make sure this is a valid file.\n")
     sys.exit(2)
-
-# Ugly hack to deal with the recursion limit
-sys.setrecursionlimit(150000)
 
 log("Creating database: ")
 db_file = tempfile.NamedTemporaryFile(delete=False)
