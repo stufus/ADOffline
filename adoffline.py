@@ -304,7 +304,7 @@ def calculate_chain_of_ancestry(sql):
         sys.stdout.flush()
         get_member_groups(c,user_dn[0])
         sql.commit()
-        sys.stdout.write("\r  Processed line "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
+        sys.stdout.write("\r  Processed user "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
     return
 
 def display_totals(sql):
@@ -326,14 +326,41 @@ def get_member_groups(cursor,user_dn):
     if initial_groups == None:
         return
 
+    processed_groups = dict()
+
     # Loop through each chunk of groups
     while True:
+        # Take the current list of groups (initial_groups), use the database to find out
+        # who the members are, update the database with membership and then return
+        # the list of groups that the initial list are members of
         nested_groups = update_member_groups_and_return_next_level(cursor,initial_groups,user_dn,True)
-        initial_groups = nested_groups
+
+        # If there are no more groups, break out of the loop.
         if nested_groups == None:
             break
-        pprint.pprint(nested_groups)
+
+        # nested_groups now contains a list of groups that initial_groups are a member of. 
+        # We need to avoid the situation where we have circular dependencies (i.e. group A is a member
+        # of group B, which is a member of Group C, which is a member of Group A).
+        # Therefore, we will loop through the next level of groups and see if any of them 
+        # are already in the database. If they are, it means that they have already been
+        # included and don't need to be processed again.
+        for i in initial_groups:
+            processed_groups[i] = True
+
+        initial_groups = []
+        for i in nested_groups:
+            # If the group hasn't already been covered, add it to the list
+            if i not in processed_groups:
+                initial_groups.append(i)
+            else:
+                pprint.pprint(i)
     
+        # Break out if we are just going to cover groups that we have
+        # already covered
+        if len(initial_groups) == 0:
+            break
+
     # For this specific user, also look at the primaryGroupId and add that group too
     sql_pgid = 'replace into raw_memberof (dn_group,dn_member) VALUES ((select dn from view_groups where rid = (select primaryGroupId from view_users where dn = ?)), ?)'
     cursor.execute(sql_pgid, [user_dn, user_dn])
