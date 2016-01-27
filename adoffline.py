@@ -1,6 +1,5 @@
 import base64
 import time
-import pprint
 import struct
 import tempfile
 import sqlite3
@@ -325,7 +324,6 @@ def get_member_groups(cursor,user_dn):
 
     # Loop through each chunk of groups
     while True:
-        pprint.pprint(initial_groups)
         nested_groups = update_member_groups_and_return_next_level(cursor,initial_groups,user_dn,True)
         initial_groups = nested_groups
         if nested_groups == None:
