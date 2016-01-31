@@ -73,6 +73,7 @@ def fix_db_indices(sql):
 
     # Create the indicies
     c.execute("CREATE UNIQUE INDEX raw_users_dn on raw_users (dn)")
+    c.execute("CREATE UNIQUE INDEX raw_users_cn on raw_users (cn)")
     c.execute("CREATE INDEX raw_users_dnshostname on raw_users (objectClass,dNSHostName)")
     c.execute("CREATE INDEX raw_users_samaccountname on raw_users (objectClass,sAMAccountName)")
     c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
@@ -353,8 +354,6 @@ def get_member_groups(cursor,user_dn):
             # If the group hasn't already been covered, add it to the list
             if i not in processed_groups:
                 initial_groups.append(i)
-            else:
-                pprint.pprint(i)
     
         # Break out if we are just going to cover groups that we have
         # already covered
