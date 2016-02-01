@@ -39,7 +39,7 @@ The current version is not complete; there are several efficiency improvements t
 * Stores users, groups and computers
 * Calculates nested groups for users only
 
-This was tested on a real client domain with approximately 100,000 individual users, groups and computers. It took approximately 30 minutes to parse the original LDIF file and generate the database and another half an hour to work out the nested groups on a laptop (single threaded).
+This was tested on a real client domain with approximately 100,000 individual users, groups and computers. It took approximately 30 minutes to parse the 7 million lines in the original LDIF file to generate the database and another half an hour to work out the nested groups on a laptop (single threaded).
 
 ```
 $ ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no > client.ldif
