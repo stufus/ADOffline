@@ -10,17 +10,19 @@ There is a huge amount of information stored in LDAP; this tool does not seek to
 
 It is work in progress; all commits/PRs/support welcome. 
 
+_AT THE MOMENT, THIS IS ALPHA CODE_. It has not been fully tested and is not production ready.
+
 ## Benefits
 
 * Allows enumeration of users, computers (including hostname, OS etc) and groups; these are all derived from users.
 * Parses flags (e.g. sAMAccountType, userAccountControl) for intuitive searching.
-* Easy to enumerate basic group membership.
-** Automatic calculation of nested group membership will be added shortly.
+* Easy to enumerate basic and nested group membership.
 
 ## Drawbacks
 
 * Will take a while to parse a large LDIF file. During testing, it took 30 minutes to parse a large domain containing roughly 100,000 users, groups and computers.
 * Reqires a large data exchange with the domain controller which may be noticed. For example, the domain above generated a 400Mb LDAP file, although this was generated in approximately 4 minutes.
+* Does not currently consider foreign groups (i.e. from trusts).
 
 ## Usage
 
@@ -35,27 +37,39 @@ This assumes that you have low privilege (e.g. standard user) access to a domain
 The current version is not complete; there are several efficiency improvements to be made and features to be added. It currently:
 
 * Stores users, groups and computers
-* Main memberships (but not nested groups yet)
+* Calculates nested groups for users only
 
-This was tested on a real client domain with 56539 individual users, groups and computers. It took approximately 15 minutes to parse the original LDIF file and generate the database; on my hardware, this is roughly 60/sec.
+This was tested on a real client domain with approximately 100,000 individual users, groups and computers. It took approximately 30 minutes to parse the original LDIF file and generate the database and another half an hour to work out the nested groups on a laptop (single threaded).
 
 ```
+$ ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no > client.ldif
+...
+
+$ ls -lah client.ldif
+-rw-r--r--  1 stuart  users   391M Jan 21 08:18 client.ldif
+
+$ python adoffline.py client.ldif
 AD LDAP to SQLite Offline Parser
 Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>
 
-[20/Jan/16 22:56:44] Creating database: /tmp/tmpKlkkYZ.20160120225644.ad-ldap.db
-[20/Jan/16 22:56:44] Reading LDIF...done
-[20/Jan/16 22:56:45] Parsing LDIF..done
-[20/Jan/16 23:11:47] Applying indices...done
-[20/Jan/16 23:12:04] Completed
+[31/Jan/16 23:31:52] Creating database: /tmp/tmpBQXkFH.20160131233152.ad-ldap.db
+[31/Jan/16 23:31:52] Reading LDIF...done
+[31/Jan/16 23:31:53] Parsing LDIF...
+  Reading line 7001808/7001808 (100%)
+[31/Jan/16 23:59:24] Calculating chain of ancestry (nested groups)...
+  Processed user 27385/27385 (100%)
+[01/Feb/16 00:27:35] Completed
+
+        Users: 27385
+       Groups: 38334
+    Computers: 29142
+ Associations: 2102885
+ 
+$ ls -lah /tmp/tmpBQXkFH.20160131233152.ad-ldap.db
+-rw-r--r--  1 stuart  wheel   1.0G Feb  1 00:27 /tmp/tmpBQXkFH.20160131233152.ad-ldap.db
 ```
 
-The database size for the above example was 462MB which is perfectly manageable.
-
-```
-$ ls -lah /tmp/tmpKlkkYZ.20160120225644.ad-ldap.db
--rw-r--r--  1 stuart  wheel   462M Jan 20 23:12 /tmp/tmpKlkkYZ.20160120225644.ad-ldap.db
-```
+The database size for the above example was 1GB which is perfectly manageable.
 
 ## Database Structure
 
