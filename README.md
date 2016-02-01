@@ -19,7 +19,7 @@ It is work in progress; all commits/PRs/support welcome.
 
 ## Drawbacks
 
-* Will take a while to parse a large LDIF file. During testing, it took 20 minutes to parse a domain containing 30,000 users.
+* Will take a while to parse a large LDIF file. During testing, it took 30 minutes to parse a large domain containing roughly 100,000 users, groups and computers.
 * Reqires a large data exchange with the domain controller which may be noticed. For example, the domain above generated a 400Mb LDAP file, although this was generated in approximately 4 minutes.
 
 ## Usage
