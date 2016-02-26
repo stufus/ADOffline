@@ -10,7 +10,8 @@ There is a huge amount of information stored in LDAP; this tool does not seek to
 
 It is work in progress; all commits/PRs/support welcome. 
 
-_AT THE MOMENT, THIS IS ALPHA CODE_. It has not been fully tested and is not production ready.
+_AT THE MOMENT, THIS IS BETA CODE_. 
+It has not been fully tested but has been used successfully on various targeted attacks and engagements.
 
 ## Benefits
 
@@ -237,3 +238,45 @@ GT_GROUP_SECURITY  | If 1, this specifies a security group.
 GT_GROUP_DISTRIBUTION | If 1, this specifies a distribution group (this is the inverse of the security group GT_GROUP_SECURITY). I have included it so that distribution groups can be identified more easily.
 
 ## Examples
+
+Show active members of the Domain Admins group:
+```
+sqlite> select member_cn from view_activegroupusers where group_cn = "Domain Admins";
+```
+
+Show the effective groups that 'Stufus' is a member of:
+```
+sqlite> select group_cn from view_activegroupusers where member_cn = "Stufus";
+```
+
+Write a list of computer hostnames and operating system information (sorted by OS) to a CSV file:
+```
+sqlite> .mode csv
+sqlite> .once hosts.csv
+sqlite> select cn,dNSHostName,operatingSystem,operatingSystemVersion,operatingSystemServicePack from view_computers order by operatingSystem,operatingSystemVersion,operatingSystemServicePack;
+```
+
+Display a list of users who have 'pass' somewhere in their description or info fields:
+```
+sqlite> select cn,description,info FROM view_users WHERE (description LIKE '%pass%' OR info LIKE '%pass%');
+```
+
+Display a list of users who have something in their description or info fields:
+```
+sqlite> select cn,description,info FROM view_users WHERE (description IS NOT NULL or info IS NOT NULL);
+```
+
+Display a list of computers which have something in their description or info fields:
+```
+sqlite> select cn,description,info FROM view_computers WHERE (description IS NOT NULL or info IS NOT NULL);
+```
+
+Display the number of computers running each of the operating systems used in the target's estate:
+```
+sqlite> select count(dn),operatingSystem FROM view_computers where ADS_UF_ACCOUNTDISABLE=0 and ADS_UF_LOCKOUT=0 GROUP BY operatingSystem;
+```
+
+Display all of the Windows XP or Windows 2000 hosts, along with their description:
+```
+sqlite> select dnsHostName,description,info,operatingSystem from view_computers where operatingSystem LIKE '%Windows%2000%' OR operatingSystem LIKE '%Windows%XP%';
+```
