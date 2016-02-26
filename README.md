@@ -116,4 +116,40 @@ manager | The user's manager; useful for generating organisational charts. Note 
 mail | Another field that contains the user's e-mail address.
 groupType | Contains a set of flags that define the type and scope of a group object. 
 
+### The Database Tables
+
+Internally, the database has two tables which are created automatically using the statements below.
+
+```
+CREATE TABLE raw_users ('objectClass','dn','title', 'cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType', 'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType');
+
+CREATE TABLE raw_memberof ('dn_group' TEXT NOT NULL,'dn_member' TEXT NOT NULL, PRIMARY KEY('dn_group','dn_member'));
+```
+
+The first table (raw_users) holds the basic information retrieved from LDAP as discussed in the table above. The second table stores any DNs referenced by a member or memberOf attribute. For example, if UserA and UserB are members of GroupX, raw_memberof will contain:
+
+dn_group | dn_member
+---|---
+GroupX | UserA
+GroupX | UserB
+
+(in reality, it will contain DNs rather than usernames, but this illustrates the point). The idea is that the raw_memberof table can be joined with the raw_users table to be able to determine who is a member of what.
+
+### The Database Views
+
+In order to make this easier to interact with, a number of views; a view is essentially a table which is generated at runtime from a SQL query. 
+
+Name | Purpose
+---|---
+view_raw_users | This view (which can be treated as a table for the purposes of querying) shows the contents of the raw_users table, but also adds a number of additional columns to split up the userAccountControl and sAMAccountType values. For example, you could search for ADS_UF_LOCKOUT=1 instead of (userAccountControl&00000010).
+view_groups | This will effectively display the contents of the view above, restricting the results to groups only, and adding in the groupType parameter parsing. In effect, this can be used to list all stored information about all groups.
+view_users | Displays the contents of the view_raw_users table, but only shows users (rather than groups and computers).
+view_computers | As above, but only shows computers.
+view_groupmembers | This uses the raw_memberof table to (internally) join the users table with itself. The effect is being able to search by all attributes on a group or its members. The group fields are denoted by the prefix group_ and the member fields are denoted by the prefix member_. For example, 'SELECT member_cn FROM view_groupmembers where group_cn = "Domain Admins"' would display all members of the Domain Admins group, taking into account nested groups.
+view_activegroupusers | This restricts the output of view_groupmembers to users who are not locked and not disabled. The same query as above, but only returning names of users who are active would be 'select member_cn from view_activegroupusers where group_cn = "Domain Admins"'
+
+This probably looks quite confusing and inefficient, and both are true. However, designing it this way does make it very powerful; it enables almost any sensible search to be performed offline which is of particular use during simulated attacks because you can identify high value accounts completely offline, and get a good idea of the internals of the target domain without running repeated queries.
+
+I would encourage you to take the time to get used to this. I have provided a description of each of the fields available in the database below and, below that, some examples of common queries.
+
 ## Examples
