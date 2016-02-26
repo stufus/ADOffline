@@ -4,7 +4,7 @@
 
 Most penetration testers, or those engaged in simulated attacks or red team activities, will understand the value of reconnisance. On large corporate networks, this will involve a fair amount of Active Directory querying. There are some exceptionally powerful tools built into Empire, PowerTools and Metasploit, but these all rely on an active connection to a domain controller.
 
-This tool combines the flexibility of SQL with the raw detail in Active Directory by parsing the raw LDAP output from Active Directory into a SQLite database. This can then be used to explore user and group membership and download all computer information.
+This tool combines the flexibility of SQL with the raw detail in Active Directory by parsing the raw LDAP output from Active Directory and inserting it into a SQLite database. This can then be used to explore user and group membership and download all computer information.
 
 There is a huge amount of information stored in LDAP; this tool does not seek to recover it all, but instead should help with planning attacks or identifying high value target users without needing to constantly query AD.
 
@@ -72,5 +72,48 @@ $ ls -lah /tmp/tmpBQXkFH.20160131233152.ad-ldap.db
 The database size for the above example was 1GB which is perfectly manageable.
 
 ## Database Structure
+
+A user, group and computer is, in essence, the same thing as far as LDAP is concerned. There are some attributes that do not make sense if you are not a computer (e.g. operatingSystem) but at a high level, each of these records is considered as a user at heart. However, there are a number of SQL views that can be used to offer easy identification of computers, groups and users in a more intuitive manner.
+
+### LDAP Fields Captured
+
+The table below shows the LDAP attributes that ADOffline currently identifies and parses. Note that in some cases, the description is based on the believed general usage of the attribute; there may be circumstances where an organisation uses this field for a different reason. 
+
+The actual fields in the database are covered later; this is because the fields below are sometimes parsed and interpreted in order to make their meaning clearer. 
+
+Attribute | Purpose
+------------| -------
+objectClass | The type of object.
+title | The job title of an individual.
+cn | The name that represents an object. This is usually the name of the user, computer or group.
+givenName | Contains the given name (first name) of the user.
+sn | Surname
+description | This is a free-text field which is usually used to store comments relating to this user, computer or group. Sometimes it can have useful information such as default passwords, the purpose of the user or an explanation of how to interact with them. By default, Ben Campbell's metasploit POST module (post/windows/gather/enum_ad_user_comments) works by searching the description field for 'pass' although this is configurable.
+instanceType | This is described by Microsoft as "A bitfield that dictates how the object is instantiated on a particular server. The value of this attribute can differ on different replicas even if the replicas are in sync.". Generally speaking, it seems to be 4.
+displayName | Usually the full name of the user
+member | Groups can have zero or more 'member' attributes; this indicates that the DN specified is a member of that group.
+memberOf | Groups, users and computers can have zero or more 'memberOf' attributes; this indicates that the current DN is a member of the DN specified.
+name | Seems to be the same as displayName most of the time
+dNSHostName | For computers, it is the DNS hostname of the computer.
+userAccountControl | Flags that control the behaviour of the user account. See https://msdn.microsoft.com/en-us/library/windows/desktop/ms680832%28v=vs.85%29.aspx for a description, but ADOffline parses them to make them easier to search for.
+badPwdCount | The number of times the user tried to log on to the account using an incorrect password. A value of 0 indicates that the value is unknown. See https://technet.microsoft.com/en-us/library/cc775412%28WS.10%29.aspx for a description; it appears that this is maintained on a per-DC basis and is reset (on the specific DC) when there is a successful login. 
+primaryGroupID | The PrimaryGroupID attribute on a user or group object holds the RID of the primary group. Therefore, the user can be considered to be a member of this group even if no 'member' or 'memberOf' attributes are present.
+adminCount | Indicates that a given object has had its ACLs changed to a more secure value by the system because it was a member of one of the administrative groups (directly or transitively). Basically, anyone with adminCount=1 is or was a privileged user of some sort.
+objectSid | The SID 
+sAMAccountName | The username (the logon name used to support clients and servers running earlier versions of the operating system.)
+sAMAccountType | This attribute contains information about every account type object. This is parsed by ADOffline.
+objectCategory | "An object class name used to group objects of this or derived classes."
+operatingSystem | The named operating system; only relevant to computers for obvious reasons.
+operatingSystemVersion | The version of the operating system.
+operatingSystemServicePack | The identifier of the latest service pack installed
+managedBy | The distinguished name of the user that is assigned to manage this object. Useful as a starting point when looking for managed groups with additional permissions.
+info | One of the general fields available in AD. Sometimes used to store interesting information relating to a user/group/computer.
+department | The department to which the user belongs.
+company | The name of the company.
+homeDirectory | The default home directory location which is mapped to the user's home directory. Useful to identify file servers quickly on the network, but be mindful of DFS (i.e. \\domain\home\user vs \\fileserver\home\user).
+userPrincipalName | Usually the user's e-mail address.
+manager | The user's manager; useful for generating organisational charts. Note that this is different from the 'managedBy' attribute; the manager seems to be for display/organisation chart purposes only.
+mail | Another field that contains the user's e-mail address.
+groupType | Contains a set of flags that define the type and scope of a group object. 
 
 ## Examples
