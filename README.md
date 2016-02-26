@@ -227,13 +227,13 @@ SAM_TRUST_ACCOUNT | If 1, this flag is set (sAMAccountType attribute).
 SAM_APP_BASIC_GROUP | If 1, this flag is set (sAMAccountType attribute).
 SAM_APP_QUERY_GROUP | If 1, this flag is set (sAMAccountType attribute).
 SAM_ACCOUNT_TYPE_MAX | If 1, this flag is set (sAMAccountType attribute).
-GT_GROUP_CREATED_BY_SYSTEM | INTEGER | If 1, this is a group that is created by the system.
-GT_GROUP_SCOPE_GLOBAL | INTEGER | If 1, this is a group with global scope.
-GT_GROUP_SCOPE_LOCAL | INTEGER | If 1, this is a group with domain local scope.
-GT_GROUP_SCOPE_UNIVERSAL | INTEGER | If 1, this is a group with universal scope.
-GT_GROUP_SAM_APP_BASIC | INTEGER | If 1, this specifies an APP_BASIC group for Windows Server Authorisation Manager.
-GT_GROUP_SAM_APP_QUERY | INTEGER | If 1, this specifies an APP_QUERY group for Windows Server Authorisation Manager.
-GT_GROUP_SECURITY | INTEGER | If 1, this specifies a security group.
-GT_GROUP_DISTRIBUTION | INTEGER | If 1, this specifies a distribution group (this is the inverse of the security group GT_GROUP_SECURITY). I have included it so that distribution groups can be identified more easily.
+GT_GROUP_CREATED_BY_SYSTEM | If 1, this is a group that is created by the system.
+GT_GROUP_SCOPE_GLOBAL  | If 1, this is a group with global scope.
+GT_GROUP_SCOPE_LOCAL  | If 1, this is a group with domain local scope.
+GT_GROUP_SCOPE_UNIVERSAL  | If 1, this is a group with universal scope.
+GT_GROUP_SAM_APP_BASIC  | If 1, this specifies an APP_BASIC group for Windows Server Authorisation Manager.
+GT_GROUP_SAM_APP_QUERY  | If 1, this specifies an APP_QUERY group for Windows Server Authorisation Manager.
+GT_GROUP_SECURITY  | If 1, this specifies a security group.
+GT_GROUP_DISTRIBUTION | If 1, this specifies a distribution group (this is the inverse of the security group GT_GROUP_SECURITY). I have included it so that distribution groups can be identified more easily.
 
 ## Examples
