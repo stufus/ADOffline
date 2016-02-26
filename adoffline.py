@@ -73,7 +73,7 @@ def fix_db_indices(sql):
 
     # Create the indicies
     c.execute("CREATE UNIQUE INDEX raw_users_dn on raw_users (dn)")
-    c.execute("CREATE UNIQUE INDEX raw_users_cn on raw_users (cn)")
+    c.execute("CREATE INDEX raw_users_cn on raw_users (cn)")
     c.execute("CREATE INDEX raw_users_dnshostname on raw_users (objectClass,dNSHostName)")
     c.execute("CREATE INDEX raw_users_samaccountname on raw_users (objectClass,sAMAccountName)")
     c.execute("CREATE UNIQUE INDEX raw_memberof_user_group on raw_memberof('dn_member','dn_group')")
