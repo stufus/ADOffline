@@ -51,6 +51,21 @@ def process_struct(struct,sql):
 
     return
 
+def banner():
+    sys.stdout.write("\n")
+    sys.stdout.write("       .mMMMMMm.             MMm    M   WW   W   WW   RRRRR\n")
+    sys.stdout.write("      mMMMMMMMMMMM.           MM   MM    W   W   W    R   R\n")
+    sys.stdout.write("     /MMMM-    -MM.           MM   MM    W   W   W    R   R\n")
+    sys.stdout.write("    /MMM.    _  \/  ^         M M M M     W W W W     RRRR\n")
+    sys.stdout.write("    |M.    aRRr    /W|        M M M M     W W W W     R  R\n")
+    sys.stdout.write("    \/  .. ^^^   wWWW|        M  M  M      W   W      R   R\n")
+    sys.stdout.write("       /WW\.  .wWWWW/         M  M  M      W   W      R    R\n")
+    sys.stdout.write("       |WWWWWWWWWWW/\n")
+    sys.stdout.write("         .WWWWWW.          ADOffline - Convert AD LDAP to SQL\n")
+    sys.stdout.write("                        stuart.morgan@mwrinfosecurity.com | @ukstufus\n")
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
 # Build the SQL database schema
 def build_db_schema(sql):
     
@@ -255,6 +270,7 @@ def insert_into_db(struct,sql):
     return
 
 # https://blogs.msdn.microsoft.com/oldnewthing/20040315-00/?p=40253/
+# http://stackoverflow.com/questions/33188413/python-code-to-convert-from-objectsid-to-sid-representation
 def get_string_sid_from_binary_sid(base64string):
     binarysid = base64.b64decode(base64string)
     version = struct.unpack('B', binarysid[0])[0]
@@ -403,12 +419,12 @@ def err(strval):
     sys.stderr.flush()
     return
 
-# Create the SQLite3 database
-sys.stdout.write("AD LDAP to SQLite Offline Parser\nStuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>\n\n")
+# Start
+banner()
 
 if len(sys.argv)<2:
     err("Specify the source LDIF filename on the command line. Create it with a command such as:\n")
-    err("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no \"(|(objectClass=group)(objectClass=user))\" > ldap.output\n")
+    err("ldapsearch -h <ip> -x -D <username> -w <password> -b <base DN> -E pr=1000/noprompt -o ldif-wrap=no > ldap.output\n")
     sys.exit(1)
 
 source_filename = sys.argv[1]
@@ -427,6 +443,7 @@ fix_db_indices(sql)
 sys.stdout.write(db_filename+"\n")
 
 f = open(source_filename,"r")
+
 log("Reading LDIF..")
 # Open the LDAP file and read its contents
 lines = f.readlines()
