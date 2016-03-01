@@ -16,10 +16,10 @@ def match_param(line,param):
     # These ones have two ::'s, presuambly to signify that
     # they are base64 encoded
     if param in ['objectSid','sIDHistory','objectGUID']:
-        var = re.match('^'+param+'::\s([^$]+)\s*$', line.strip())
+        var = re.match('^'+param+'::\s*(.+?)\s*$', line.strip())
     else:
         # Everything else should be key: value, not key:: value
-        var = re.match('^'+param+':\s([^$]+)\s*$', line.strip())
+        var = re.match('^'+param+':\s*(.+?)\s*$', line.strip())
 
     if var != None:
         return var.group(1).strip()
