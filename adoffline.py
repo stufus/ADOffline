@@ -73,7 +73,7 @@ def build_db_schema(sql):
 
     # Create the tables
     c.execute('''CREATE TABLE raw_users
-                 ('objectClass','dn','title', 'cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType',
+                 ('objectClass','dn','title', 'comment', 'cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sid','rid','sAMAccountName','sAMAccountType',
                  'objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName',
                  'manager','mail','groupType')''') 
     c.execute("CREATE TABLE raw_memberof ('dn_group' TEXT NOT NULL,'dn_member' TEXT NOT NULL, PRIMARY KEY('dn_group','dn_member'))")
@@ -102,7 +102,7 @@ def create_views(sql):
     c = sql.cursor()
 
     # Generate the main view with calculated fields
-    c.execute('''CREATE VIEW view_raw_users AS select objectClass, dn, title, cn, sn, description, instanceType, displayName, name, dNSHostName, userAccountControl, badPwdCount, primaryGroupID, adminCount, objectSid, sid, rid, sAMAccountName, sAMAccountType, objectCategory, managedBy, givenName, info, department, company, homeDirectory, userPrincipalName, manager, mail, operatingSystem, operatingSystemVersion, operatingSystemServicePack, groupType,
+    c.execute('''CREATE VIEW view_raw_users AS select objectClass, dn, title, comment, cn, sn, description, instanceType, displayName, name, dNSHostName, userAccountControl, badPwdCount, primaryGroupID, adminCount, objectSid, sid, rid, sAMAccountName, sAMAccountType, objectCategory, managedBy, givenName, info, department, company, homeDirectory, userPrincipalName, manager, mail, operatingSystem, operatingSystemVersion, operatingSystemServicePack, groupType,
      (CASE (userAccountControl&0x00000001) WHEN (0x00000001) THEN 1 ELSE 0 END) AS ADS_UF_SCRIPT,
      (CASE (userAccountControl&0x00000002) WHEN (0x00000002) THEN 1 ELSE 0 END) AS ADS_UF_ACCOUNTDISABLE,
 	 (CASE (userAccountControl&0x00000008) WHEN (0x00000008) THEN 1 ELSE 0 END) AS ADS_UF_HOMEDIR_REQUIRED,
@@ -152,7 +152,7 @@ def create_views(sql):
     c.execute("CREATE VIEW view_computers AS select view_raw_users.* FROM view_raw_users WHERE objectClass = 'computer'")
 
     # Create the merged table
-    c.execute('''CREATE VIEW view_groupmembers AS select g.objectClass as group_objectClass, g.dn as group_dn, g.title as group_title, g.cn as group_cn, g.sn as group_sn, g.description as group_description, g.instanceType as group_instanceType, g.displayName as group_displayName, g.name as group_name, g.dNSHostName as group_dNSHostName, g.userAccountControl as group_userAccountControl, g.badPwdCount as group_badPwdCount, g.primaryGroupID as group_primaryGroupID, g.adminCount as group_adminCount, g.objectSid as group_objectSid, g.sid as group_sid, g.rid as group_rid, g.sAMAccountName as group_sAMAccountName, g.sAMAccountType as group_sAMAccountType, g.objectCategory as group_objectCategory, g.managedBy as group_managedBy, g.givenName as group_givenName, g.info as group_info, g.department as group_department, g.company as group_company, g.homeDirectory as group_homeDirectory, g.userPrincipalName as group_userPrincipalName, g.manager as group_manager, g.mail as group_mail, g.groupType as group_groupType, g.ADS_UF_SCRIPT as group_ADS_UF_SCRIPT,
+    c.execute('''CREATE VIEW view_groupmembers AS select g.objectClass as group_objectClass, g.dn as group_dn, g.comment as group_comment, g.title as group_title, g.cn as group_cn, g.sn as group_sn, g.description as group_description, g.instanceType as group_instanceType, g.displayName as group_displayName, g.name as group_name, g.dNSHostName as group_dNSHostName, g.userAccountControl as group_userAccountControl, g.badPwdCount as group_badPwdCount, g.primaryGroupID as group_primaryGroupID, g.adminCount as group_adminCount, g.objectSid as group_objectSid, g.sid as group_sid, g.rid as group_rid, g.sAMAccountName as group_sAMAccountName, g.sAMAccountType as group_sAMAccountType, g.objectCategory as group_objectCategory, g.managedBy as group_managedBy, g.givenName as group_givenName, g.info as group_info, g.department as group_department, g.company as group_company, g.homeDirectory as group_homeDirectory, g.userPrincipalName as group_userPrincipalName, g.manager as group_manager, g.mail as group_mail, g.groupType as group_groupType, g.ADS_UF_SCRIPT as group_ADS_UF_SCRIPT,
 	g.ADS_UF_ACCOUNTDISABLE AS group_ADS_UF_ACCOUNTDISABLE,
 	g.ADS_UF_HOMEDIR_REQUIRED AS group_ADS_UF_HOMEDIR_REQUIRED,
 	g.ADS_UF_LOCKOUT AS group_ADS_UF_LOCKOUT,
@@ -181,7 +181,7 @@ def create_views(sql):
     (CASE (g.groupType&0x00000020) WHEN (0x00000020) THEN 1 ELSE 0 END) AS group_GROUP_SAM_APP_QUERY,
     (CASE (g.groupType&0x80000000) WHEN (0x80000000) THEN 1 ELSE 0 END) AS group_GROUP_SECURITY,
     (CASE (g.groupType&0x80000000) WHEN (0x80000000) THEN 0 ELSE 1 END) AS group_GROUP_DISTRIBUTION,
-    m.objectClass as member_objectClass, m.dn as member_dn, m.title as member_title, m.cn as member_cn, m.sn as member_sn, m.description as member_description, m.instanceType as member_instanceType, m.displayName as member_displayName, m.name as member_name, m.dNSHostName as member_dNSHostName, m.userAccountControl as member_userAccountControl, m.badPwdCount as member_badPwdCount, m.primaryGroupID as member_primaryGroupID, m.adminCount as member_adminCount, m.objectSid as member_objectSid, m.sid as member_sid, m.rid as member_rid, m.sAMAccountName as member_sAMAccountName, m.sAMAccountType as member_sAMAccountType, m.objectCategory as member_objectCategory, m.managedBy as member_managedBy, m.givenName as member_givenName, m.info as member_info, m.department as member_department, m.company as member_company, m.homeDirectory as member_homeDirectory, m.userPrincipalName as member_userPrincipalName, m.manager as member_manager, m.mail as member_mail, m.operatingSystem as member_operatingSystem, m.operatingSystemVersion as member_operatingSystemVersion, m.operatingSystemServicePack as member_operatingSystemServicePack, m.groupType as member_groupType, m.ADS_UF_SCRIPT as member_ADS_UF_SCRIPT,
+    m.objectClass as member_objectClass, m.dn as member_dn, m.title as member_title, m.cn as member_cn, m.sn as member_sn, m.comment as member_comment, m.description as member_description, m.instanceType as member_instanceType, m.displayName as member_displayName, m.name as member_name, m.dNSHostName as member_dNSHostName, m.userAccountControl as member_userAccountControl, m.badPwdCount as member_badPwdCount, m.primaryGroupID as member_primaryGroupID, m.adminCount as member_adminCount, m.objectSid as member_objectSid, m.sid as member_sid, m.rid as member_rid, m.sAMAccountName as member_sAMAccountName, m.sAMAccountType as member_sAMAccountType, m.objectCategory as member_objectCategory, m.managedBy as member_managedBy, m.givenName as member_givenName, m.info as member_info, m.department as member_department, m.company as member_company, m.homeDirectory as member_homeDirectory, m.userPrincipalName as member_userPrincipalName, m.manager as member_manager, m.mail as member_mail, m.operatingSystem as member_operatingSystem, m.operatingSystemVersion as member_operatingSystemVersion, m.operatingSystemServicePack as member_operatingSystemServicePack, m.groupType as member_groupType, m.ADS_UF_SCRIPT as member_ADS_UF_SCRIPT,
 	m.ADS_UF_ACCOUNTDISABLE AS member_ADS_UF_ACCOUNTDISABLE,
 	m.ADS_UF_HOMEDIR_REQUIRED AS member_ADS_UF_HOMEDIR_REQUIRED,
 	m.ADS_UF_LOCKOUT AS member_ADS_UF_LOCKOUT,
@@ -223,13 +223,13 @@ def create_views(sql):
 # Insert the new user/group/computer into the database
 def insert_into_db(struct,sql):
     c = sql.cursor()
-    ldap_single_params = ['title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType']
+    ldap_single_params = ['title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType', 'comment']
     ldap_values = []
     for ind in ldap_single_params:
         ldap_values.append(safe_struct_get(struct,ind))
 
     # Raw_users contains everything
-    sql_statement = "insert into raw_users ('rid','sid','objectClass','dn','title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    sql_statement = "insert into raw_users ('rid','sid','objectClass','dn','title','cn','sn','description','instanceType','displayName','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','userPrincipalName','manager','mail','groupType', 'comment') VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
     ldap_values.insert(0,struct['dn'])
 
     # Make sure that this is a user, group or computer
@@ -454,7 +454,7 @@ f.close()
 current_dn = {}
 
 # The list of ldap parameters to save
-ldap_params = ['objectClass','title','cn','sn','description','instanceType','displayName','member','memberOf','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','sIDHistory','userPrincipalName','manager','mail','groupType']
+ldap_params = ['objectClass','title','cn','sn','description','instanceType','displayName','member','memberOf','name','dNSHostName','userAccountControl','badPwdCount','primaryGroupID','adminCount','objectSid','sAMAccountName','sAMAccountType','objectCategory','operatingSystem','operatingSystemServicePack','operatingSystemVersion','managedBy','givenName','info','department','company','homeDirectory','sIDHistory','userPrincipalName','manager','mail','groupType','comment']
 
 log("Parsing LDIF...\n")
 # Go through each line in the LDIF file
