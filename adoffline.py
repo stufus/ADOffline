@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# ADOffline - AD LDAP Schema to SQLite Database
+# Stuart Morgan (@ukstufus) <stuart.morgan@mwrinfosecurity.com>
+#
 import pprint
 import base64
 import time
@@ -16,10 +22,10 @@ def match_param(line,param):
     # These ones have two ::'s, presuambly to signify that
     # they are base64 encoded
     if param in ['objectSid','sIDHistory','objectGUID']:
-        var = re.match('^'+param+'::\s*(.+?)\s*$', line.strip())
+        var = re.match('^'+param+'::\s+(.+?)\s*$', line.strip())
     else:
         # Everything else should be key: value, not key:: value
-        var = re.match('^'+param+':\s*(.+?)\s*$', line.strip())
+        var = re.match('^'+param+':\s+(.+?)\s*$', line.strip())
 
     if var != None:
         return var.group(1).strip()
@@ -443,7 +449,6 @@ fix_db_indices(sql)
 sys.stdout.write(db_filename+"\n")
 
 f = open(source_filename,"r")
-
 log("Reading LDIF..")
 # Open the LDAP file and read its contents
 lines = f.readlines()
