@@ -325,7 +325,7 @@ def calculate_chain_of_ancestry(sql,table):
         all_dn_counter += 1
         percentage_count = "{0:.0f}%".format(float(all_dn_counter)/all_dn_number * 100)
         sys.stdout.flush()
-        get_member_groups(c,user_dn[0])
+        get_member_groups(c,user_dn[0],table)
         sql.commit()
         sys.stdout.write("\r  Processed DN "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
     return
@@ -342,7 +342,7 @@ def display_totals(sql):
     print " Associations: "+str(c.fetchone()[0])
     return
 
-def get_member_groups(cursor,user_dn):
+def get_member_groups(cursor,user_dn,table):
 
     # Firstly, retrieve the list of groups that the provided DN belongs to
     initial_groups = update_member_groups_and_return_next_level(cursor,[user_dn],user_dn,False)
@@ -383,7 +383,7 @@ def get_member_groups(cursor,user_dn):
             break
 
     # For this specific user, also look at the primaryGroupId and add that group too
-    sql_pgid = 'replace into raw_memberof (dn_group,dn_member) VALUES ((select dn from view_groups where rid = (select primaryGroupId from view_users where dn = ?)), ?)'
+    sql_pgid = 'replace into raw_memberof (dn_group,dn_member) VALUES ((select dn from view_groups where rid = (select primaryGroupId from '+table+' where dn = ?)), ?)'
     cursor.execute(sql_pgid, [user_dn, user_dn])
     return
 
