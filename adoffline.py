@@ -312,12 +312,12 @@ def safe_struct_get(struct,name):
     return struct[name][0]
 
 # Sort out the nested groups
-def calculate_chain_of_ancestry(sql):
+def calculate_chain_of_ancestry(sql,table):
 
     c = sql.cursor()
 
     # Get the initial list of users
-    c.execute("select dn from view_users")
+    c.execute("select dn from "+table)
     all_dn = c.fetchall()
     all_dn_number = len(all_dn)
     all_dn_counter = 0
@@ -327,7 +327,7 @@ def calculate_chain_of_ancestry(sql):
         sys.stdout.flush()
         get_member_groups(c,user_dn[0])
         sql.commit()
-        sys.stdout.write("\r  Processed user "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
+        sys.stdout.write("\r  Processed DN "+str(all_dn_counter)+"/"+str(all_dn_number)+" ("+percentage_count+")")
     return
 
 def display_totals(sql):
@@ -489,10 +489,13 @@ for line in lines:
 process_struct(current_dn,sql)
 sys.stdout.write("\n")
 
-log("Calculating chain of ancestry (nested groups)...\n")
-calculate_chain_of_ancestry(sql)
+log("Calculating user chain of ancestry (nested groups)...\n")
+calculate_chain_of_ancestry(sql,'view_users')
 sys.stdout.write("\n")
-log("Completed\n\n")
+log("Completed\n")
+log("Calculating computer chain of ancestry (nested groups)...\n")
+calculate_chain_of_ancestry(sql,'view_computers')
+sys.stdout.write("\n\n")
 display_totals(sql)
 sys.stdout.write("\n")
 sql.close()
