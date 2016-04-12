@@ -280,3 +280,7 @@ Display all of the Windows XP or Windows 2000 hosts, along with their descriptio
 ```
 sqlite> select dnsHostName,description,info,operatingSystem from view_computers where operatingSystem LIKE '%Windows%2000%' OR operatingSystem LIKE '%Windows%XP%';
 ```
+
+# Further Reading
+
+https://labs.mwrinfosecurity.com/blog/offline-querying-of-active-directory/
