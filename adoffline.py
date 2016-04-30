@@ -223,6 +223,8 @@ def create_views(sql):
 
     c.execute("CREATE VIEW view_activegroupusers AS select * from view_groupmembers where member_objectClass = 'user' and member_ADS_UF_LOCKOUT = 0 and member_ADS_UF_ACCOUNTDISABLE = 0")
 
+    c.execute("CREATE VIEW view_orgchartusers AS select u.dn as u_dn,u.cn as u_cn,u.title as u_title,m.dn as m_dn,m.cn as m_cn,m.title as m_title from view_users u LEFT JOIN view_users m ON u.manager = m.dn where u.dn IS NOT NULL and (m.dn IS NOT NULL OR u.dn IN (select manager from view_users where manager IS NOT NULL))");
+
     sql.commit()
     return
 
